@@ -1,0 +1,5 @@
+{
+  "name": "Legal Doc Organizer",
+  "description": "A client-side tool to organize, annotate, and split legal PDF documents (Autos, Apensos, Anexos) without external servers.",
+  "requestFramePermissions": []
+}
