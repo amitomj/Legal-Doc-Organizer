@@ -4,21 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Organizador de Autos Judiciais</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              slate: {
-                850: '#1e293b',
-                900: '#0f172a',
-              }
-            }
-          }
-        }
-      }
-    </script>
     <style>
       /* Hide scrollbar for cleaner UI in specific areas */
       .no-scrollbar::-webkit-scrollbar {
@@ -32,6 +17,7 @@
   <script type="importmap">
 {
   "imports": {
+    "react-dom/client": "https://aistudiocdn.com/react-dom@^19.2.0/client",
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
     "uuid": "https://aistudiocdn.com/uuid@^13.0.0",
     "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
@@ -49,5 +35,22 @@
 </head>
   <body class="bg-gray-50 text-slate-900 h-screen overflow-hidden">
     <div id="root" class="h-full"></div>
+    
+    <!-- Tailwind CSS loaded after body to prevent MutationObserver errors -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              slate: {
+                850: '#1e293b',
+                900: '#0f172a',
+              }
+            }
+          }
+        }
+      }
+    </script>
   </body>
 </html>
