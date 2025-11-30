@@ -46,17 +46,19 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
 }) => {
   const [numPages, setNumPages] = useState<number>(0);
   const [pageNumber, setPageNumber] = useState<number>(1);
+  const [inputPage, setInputPage] = useState<string>('1'); // State for the input field
   const [startPage, setStartPage] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [scale, setScale] = useState(1.0);
 
   // Reset state when file changes or initialPage updates
   useEffect(() => {
+    let targetPage = 1;
     if (initialPage && initialPage > 0) {
-      setPageNumber(initialPage);
-    } else {
-      setPageNumber(1);
+      targetPage = initialPage;
     }
+    setPageNumber(targetPage);
+    setInputPage(String(targetPage));
     setStartPage(null);
     setNumPages(0);
   }, [currentFile.id, initialPage, searchNavTrigger]);
@@ -66,14 +68,50 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
     // Safety check: if initial page > numPages, clamp it
     if (initialPage && initialPage > numPages) {
       setPageNumber(numPages);
+      setInputPage(String(numPages));
     }
   }
 
   const changePage = (offset: number) => {
     setPageNumber(prevPageNumber => {
       const newPage = prevPageNumber + offset;
-      return Math.min(Math.max(newPage, 1), numPages);
+      const clamped = Math.min(Math.max(newPage, 1), numPages);
+      setInputPage(String(clamped));
+      return clamped;
     });
+  };
+
+  // Handle direct input change
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    // Allow digits only
+    if (/^\d*$/.test(val)) {
+      setInputPage(val);
+    }
+  };
+
+  // Handle Enter key in input
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      const page = parseInt(inputPage);
+      if (page >= 1 && page <= numPages) {
+        setPageNumber(page);
+        e.currentTarget.blur(); // Remove focus so arrow keys work for navigation again
+      } else {
+        // Revert to current page if invalid
+        setInputPage(String(pageNumber));
+      }
+    }
+  };
+
+  // Handle blur (focus lost)
+  const handleInputBlur = () => {
+    const page = parseInt(inputPage);
+    if (page >= 1 && page <= numPages) {
+      setPageNumber(page);
+    } else {
+      setInputPage(String(pageNumber));
+    }
   };
 
   const handleMarkStart = () => {
@@ -102,6 +140,11 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (isModalOpen) return;
+      
+      // Prevent page navigation if user is typing in the page input or any other input
+      if (document.activeElement instanceof HTMLInputElement || document.activeElement instanceof HTMLTextAreaElement) {
+        return;
+      }
       
       if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
         changePage(1);
@@ -135,9 +178,21 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
-          <span className="text-sm font-mono w-20 text-center">
-            {pageNumber} / {numPages || '-'}
-          </span>
+          
+          <div className="flex items-center mx-1">
+            <input
+              type="text"
+              value={inputPage}
+              onChange={handleInputChange}
+              onKeyDown={handleInputKeyDown}
+              onBlur={handleInputBlur}
+              className="w-12 text-center text-sm font-mono border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none px-1 py-0.5"
+            />
+            <span className="text-sm font-mono text-gray-500 ml-1">
+              / {numPages || '-'}
+            </span>
+          </div>
+
           <button 
             onClick={() => changePage(1)} 
             disabled={pageNumber >= numPages}
