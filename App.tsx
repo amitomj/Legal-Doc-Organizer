@@ -4,13 +4,21 @@ import Sidebar from './components/Sidebar';
 import PdfViewer from './components/PdfViewer';
 import UploadModal from './components/UploadModal';
 import SearchDashboard from './components/SearchDashboard';
-import ExtractionModal from './components/ExtractionModal'; // Import ExtractionModal
+import ExtractionModal from './components/ExtractionModal';
+import DeleteConfirmationModal, { DeleteItemType } from './components/DeleteConfirmationModal';
 import { CaseFile, DocCategory, ExtractionMeta, Extraction, Person, PersonType } from './types';
 import { processAndExport } from './services/pdfProcessing';
 import { DEFAULT_DOC_TYPES, DEFAULT_FACTS } from './constants';
 import { FolderSearch, FileSearch, AlertCircle, FolderOpen } from 'lucide-react';
 
 export type ViewMode = 'organizer' | 'search';
+
+// Interface to track what is being deleted
+interface DeleteRequest {
+  type: 'person' | 'docType' | 'fact';
+  id?: string; // Only for persons
+  name: string; // The value to be deleted/replaced
+}
 
 const App: React.FC = () => {
   const [viewMode, setViewMode] = useState<ViewMode>('organizer');
@@ -27,6 +35,10 @@ const App: React.FC = () => {
 
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  
+  // Delete Modal State
+  const [deleteRequest, setDeleteRequest] = useState<DeleteRequest | null>(null);
+  const [deleteUsageCount, setDeleteUsageCount] = useState(0);
   
   // New State for Root Folder Management
   const [availableFiles, setAvailableFiles] = useState<File[]>([]);
@@ -164,7 +176,6 @@ const App: React.FC = () => {
   // --- PEOPLE MANAGEMENT ---
 
   const handleAddPerson = (name: string, type: PersonType) => {
-    // Check for duplicates
     if (people.some(p => p.name === name)) {
       return;
     }
@@ -178,7 +189,7 @@ const App: React.FC = () => {
 
   const handleBulkAddPeople = (names: string[], type: PersonType) => {
     const newPeople = names
-      .filter(name => !people.some(p => p.name === name)) // Filter duplicates
+      .filter(name => !people.some(p => p.name === name))
       .map(name => ({
         id: uuidv4(),
         name,
@@ -188,7 +199,6 @@ const App: React.FC = () => {
   };
 
   const handleUpdatePerson = (id: string, newName: string, newType?: PersonType) => {
-    // Prevent rename to existing name
     if (people.some(p => p.id !== id && p.name === newName)) {
       alert("Já existe um interveniente com este nome.");
       return;
@@ -198,10 +208,10 @@ const App: React.FC = () => {
       p.id === id ? { ...p, name: newName, type: newType || p.type } : p
     ));
     
+    // Update usages automatically if renamed
     const person = people.find(p => p.id === id);
     if (person) {
       const oldName = person.name;
-      // If name changed, update extractions. 
       if (oldName !== newName) {
         setFiles(prev => prev.map(f => ({
           ...f,
@@ -214,11 +224,134 @@ const App: React.FC = () => {
     }
   };
 
-  const handleDeletePerson = (id: string) => {
-    setPeople(prev => prev.filter(p => p.id !== id));
+  // --- DELETE LOGIC (UPDATED) ---
+
+  // 1. Calculate Usages
+  const getUsageCount = (type: 'person' | 'docType' | 'fact', value: string) => {
+    let count = 0;
+    files.forEach(f => {
+      f.extractions.forEach(ext => {
+        if (type === 'person' && ext.people.includes(value)) count++;
+        if (type === 'docType' && ext.docType === value) count++;
+        if (type === 'fact' && (ext.facts || []).includes(value)) count++;
+      });
+    });
+    return count;
   };
 
-  // --- DOC TYPE & FACTS MANAGEMENT ---
+  // 2. Request Delete Handlers
+  const handleDeletePerson = (id: string) => {
+    const person = people.find(p => p.id === id);
+    if (!person) return;
+
+    const count = getUsageCount('person', person.name);
+    
+    if (count > 0) {
+      setDeleteRequest({ type: 'person', id, name: person.name });
+      setDeleteUsageCount(count);
+    } else {
+      if (window.confirm(`Tem a certeza que deseja eliminar o interveniente "${person.name}"?`)) {
+        setPeople(prev => prev.filter(p => p.id !== id));
+      }
+    }
+  };
+
+  const handleDeleteDocType = (type: string) => {
+    const count = getUsageCount('docType', type);
+    
+    if (count > 0) {
+      setDeleteRequest({ type: 'docType', name: type });
+      setDeleteUsageCount(count);
+    } else {
+      if (window.confirm(`Tem a certeza que deseja eliminar o tipo "${type}"?`)) {
+        setDocTypes(prev => prev.filter(t => t !== type));
+      }
+    }
+  };
+
+  const handleDeleteFact = (fact: string) => {
+    const count = getUsageCount('fact', fact);
+    
+    if (count > 0) {
+      setDeleteRequest({ type: 'fact', name: fact });
+      setDeleteUsageCount(count);
+    } else {
+      if (window.confirm(`Tem a certeza que deseja eliminar o facto "${fact}"?`)) {
+        setFacts(prev => prev.filter(f => f !== fact));
+      }
+    }
+  };
+
+  // 3. Confirm Delete (Remove from usages)
+  const executeDelete = () => {
+    if (!deleteRequest) return;
+    const { type, name, id } = deleteRequest;
+
+    // Remove redundant window.confirm here. The Modal is the confirmation.
+    
+    // Clean up files
+    setFiles(prev => prev.map(f => ({
+      ...f,
+      extractions: f.extractions.map(ext => {
+        if (type === 'person') {
+          return { ...ext, people: ext.people.filter(p => p !== name) };
+        }
+        if (type === 'fact') {
+            return { ...ext, facts: (ext.facts || []).filter(fact => fact !== name) };
+        }
+        if (type === 'docType' && ext.docType === name) {
+            // FALLBACK: If we delete a docType, we must replace it with something valid.
+            // Find the first available type that ISN'T the one we are deleting.
+            const fallback = docTypes.find(t => t !== name) || DEFAULT_DOC_TYPES[0] || 'Indefinido';
+            return { ...ext, docType: fallback };
+        }
+        return ext;
+      })
+    })));
+
+    // Remove from global lists
+    if (type === 'person' && id) setPeople(prev => prev.filter(p => p.id !== id));
+    if (type === 'docType') setDocTypes(prev => prev.filter(t => t !== name));
+    if (type === 'fact') setFacts(prev => prev.filter(f => f !== name));
+
+    setDeleteRequest(null);
+  };
+
+  // 4. Confirm Replace (Swap usages)
+  const executeReplace = (replacement: string) => {
+    if (!deleteRequest) return;
+    const { type, name, id } = deleteRequest;
+
+    setFiles(prev => prev.map(f => ({
+      ...f,
+      extractions: f.extractions.map(ext => {
+        if (type === 'person' && ext.people.includes(name)) {
+           // Remove old name, add new name, dedup
+           const newPeople = ext.people.filter(p => p !== name);
+           if (!newPeople.includes(replacement)) newPeople.push(replacement);
+           return { ...ext, people: newPeople };
+        }
+        if (type === 'fact' && (ext.facts || []).includes(name)) {
+           const newFacts = (ext.facts || []).filter(fact => fact !== name);
+           if (!newFacts.includes(replacement)) newFacts.push(replacement);
+           return { ...ext, facts: newFacts };
+        }
+        if (type === 'docType' && ext.docType === name) {
+           return { ...ext, docType: replacement };
+        }
+        return ext;
+      })
+    })));
+
+    // Remove from global lists after replacing usages
+    if (type === 'person' && id) setPeople(prev => prev.filter(p => p.id !== id));
+    if (type === 'docType') setDocTypes(prev => prev.filter(t => t !== name));
+    if (type === 'fact') setFacts(prev => prev.filter(f => f !== name));
+
+    setDeleteRequest(null);
+  };
+
+  // --- DOC TYPE & FACTS ADD/BULK ---
 
   const handleAddDocType = (type: string) => {
     if (!docTypes.includes(type)) {
@@ -231,10 +364,6 @@ const App: React.FC = () => {
       const newSet = new Set([...prev, ...types]);
       return Array.from(newSet).sort();
     });
-  };
-
-  const handleDeleteDocType = (type: string) => {
-    setDocTypes(prev => prev.filter(t => t !== type));
   };
 
   const handleAddFact = (fact: string) => {
@@ -250,10 +379,6 @@ const App: React.FC = () => {
     });
   };
 
-  const handleDeleteFact = (fact: string) => {
-    setFacts(prev => prev.filter(f => f !== fact));
-  };
-
   // --- EXTRACTION LOGIC ---
 
   const handleAddExtraction = (start: number, end: number, meta: ExtractionMeta) => {
@@ -264,7 +389,7 @@ const App: React.FC = () => {
       startPage: start,
       endPage: end,
       manualNumber: meta.manualNumber,
-      articles: meta.articles, // Added Articles
+      articles: meta.articles,
       docType: meta.docType,
       people: meta.selectedPeople,
       facts: meta.selectedFacts
@@ -312,11 +437,10 @@ const App: React.FC = () => {
             if (e.id === editingExtraction.extraction.id) {
                return {
                  ...e,
-                 // If new range provided, use it. Else keep existing.
                  startPage: newRange ? newRange.start : e.startPage,
                  endPage: newRange ? newRange.end : e.endPage,
                  manualNumber: meta.manualNumber,
-                 articles: meta.articles, // Update Articles
+                 articles: meta.articles,
                  docType: meta.docType,
                  people: meta.selectedPeople,
                  facts: meta.selectedFacts
@@ -332,17 +456,14 @@ const App: React.FC = () => {
     setEditingExtraction(null);
   };
 
-
-  // --- SEARCH & NAVIGATION ---
-  
   const handleSearchResultNavigate = (fileId: string, pageNumber: number) => {
     setCurrentFileId(fileId);
     setInitialPageToJump(pageNumber);
-    setSearchNavTrigger(prev => prev + 1); // Force navigation even if same file/page
+    setSearchNavTrigger(prev => prev + 1);
     setViewMode('organizer');
   };
 
-  // --- EXPORT & SAVE/LOAD & DOCS ---
+  // --- EXPORT & SAVE/LOAD ---
 
   const handleNextFile = () => {
     const idx = files.findIndex(f => f.id === currentFileId);
@@ -366,16 +487,16 @@ const App: React.FC = () => {
 
   const handleSaveProject = () => {
     const dataToSave = {
-      version: 4, // Version bump for articles
+      version: 4,
       date: new Date().toISOString(),
       people,
       docTypes,
       facts,
       files: files.map(f => ({
         ...f,
-        file: null, // Binary removed
+        file: null,
         fileName: f.file ? f.file.name : f.fileName,
-        relativePath: f.file ? f.file.webkitRelativePath : f.relativePath // Save the relative path
+        relativePath: f.file ? f.file.webkitRelativePath : f.relativePath
       }))
     };
     
@@ -406,11 +527,9 @@ const App: React.FC = () => {
         if (data.facts) setFacts(data.facts); else setFacts(DEFAULT_FACTS);
         
         if (data.files) {
-          // Restore files structure
           const restoredFiles = data.files.map((f: any) => ({
             ...f,
             file: null,
-            // Ensure extractions have facts/articles arrays even if loading old project
             extractions: f.extractions.map((ext: any) => ({
                 ...ext,
                 facts: ext.facts || (ext.fact ? [ext.fact] : ['Prova geral']),
@@ -419,8 +538,6 @@ const App: React.FC = () => {
           }));
           
           setFiles(restoredFiles);
-          
-          // If we already have a root folder loaded, try to link immediately
           if (availableFiles.length > 0) {
              autoLinkFiles(restoredFiles, availableFiles);
           }
@@ -436,10 +553,10 @@ const App: React.FC = () => {
     input.click();
   };
 
-  // Check if current file needs linking
+  // --- PREPARE DATA ---
+
   const isFileMissing = currentFile && !currentFile.file;
 
-  // Prepare initial data for editing extraction (Search Edit Mode)
   let initialEditingData: ExtractionMeta | null = null;
   let editingPageRange = { start: 0, end: 0 };
   
@@ -457,7 +574,24 @@ const App: React.FC = () => {
       };
   }
 
-  // --- EMPTY STATE ---
+  // --- DELETE MODAL PROPS ---
+  let availableReplacements: string[] = [];
+  let deleteItemTypeDisplay: DeleteItemType = 'Interveniente';
+
+  if (deleteRequest) {
+     if (deleteRequest.type === 'person') {
+       deleteItemTypeDisplay = 'Interveniente';
+       availableReplacements = people.filter(p => p.name !== deleteRequest.name).map(p => p.name).sort();
+     } else if (deleteRequest.type === 'docType') {
+       deleteItemTypeDisplay = 'Tipo de Documento';
+       availableReplacements = docTypes.filter(t => t !== deleteRequest.name).sort();
+     } else if (deleteRequest.type === 'fact') {
+       deleteItemTypeDisplay = 'Facto';
+       availableReplacements = facts.filter(f => f !== deleteRequest.name).sort();
+     }
+  }
+
+  // --- RENDER ---
   if (files.length === 0 && !isUploadOpen) {
     return (
       <div className="h-screen flex items-center justify-center bg-gray-50">
@@ -470,7 +604,6 @@ const App: React.FC = () => {
           </p>
           
           <div className="bg-white p-6 rounded-xl shadow-lg border border-blue-100 flex flex-col gap-4">
-              {/* Step 1: Root Folder (Preferred) */}
               <div className="relative group w-full">
                   <input
                     type="file"
@@ -595,14 +728,12 @@ const App: React.FC = () => {
                       A app irá procurar os ficheiros automaticamente usando os caminhos originais.
                     </p>
 
-                    {/* Information about what is missing */}
                     <div className="bg-gray-50 p-3 rounded-lg text-sm text-left mb-6 border border-gray-200">
                         <p className="font-semibold text-gray-700 mb-1">Ficheiro em falta:</p>
                         <p className="font-mono text-gray-500 break-all">{currentFile.relativePath || currentFile.fileName}</p>
                     </div>
                     
                     <div className="space-y-4">
-                        {/* Main Root Folder Input */}
                         <div className="relative group">
                             <input
                               type="file"
@@ -621,13 +752,8 @@ const App: React.FC = () => {
                               Selecionar Pasta Principal do Processo
                             </button>
                         </div>
-                        
-                        <p className="text-xs text-gray-400">
-                          Isto irá reparar todos os ficheiros do projeto de uma vez.
-                        </p>
                     </div>
                     
-                    {/* Manual Fallback */}
                     <div className="mt-8 pt-4 border-t border-gray-100">
                         <button 
                           onClick={() => setIsUploadOpen(true)}
@@ -647,7 +773,6 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {/* SEARCH EDIT MODAL */}
       <ExtractionModal 
         isOpen={!!editingExtraction}
         onClose={() => setEditingExtraction(null)}
@@ -667,6 +792,18 @@ const App: React.FC = () => {
         onBulkAddFacts={handleBulkAddFacts}
         onDeleteFact={handleDeleteFact}
         initialData={initialEditingData}
+      />
+
+      {/* NEW DELETE CONFIRMATION MODAL */}
+      <DeleteConfirmationModal
+        isOpen={!!deleteRequest}
+        onClose={() => setDeleteRequest(null)}
+        itemType={deleteItemTypeDisplay}
+        itemName={deleteRequest?.name || ''}
+        usageCount={deleteUsageCount}
+        availableReplacements={availableReplacements}
+        onConfirmDelete={executeDelete}
+        onConfirmReplace={executeReplace}
       />
 
       <UploadModal 

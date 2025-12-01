@@ -216,6 +216,13 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
     }
   }, [isOpen, initialData, pageRange]);
 
+  // Sync DocType selection if the list changes (e.g., deletion)
+  useEffect(() => {
+    if (!isCustomType && !docTypes.includes(docType) && docTypes.length > 0) {
+      setDocType(docTypes[0]);
+    }
+  }, [docTypes, docType, isCustomType]);
+
   if (!isOpen) return null;
 
   // --- DRAG LOGIC (Docked Mode) ---
@@ -382,12 +389,8 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
   }
 
   const handleDeleteCurrentDocType = () => {
-    if (window.confirm(`Tem a certeza que deseja eliminar "${docType}"?`)) {
-       onDeleteDocType(docType);
-       if (docTypes.length > 1) {
-         setDocType(docTypes[0]); // Reset to first available
-       }
-    }
+     onDeleteDocType(docType);
+     // Note: The UI update is handled by the useEffect above which watches docTypes prop
   }
 
   const renderPersonColumn = (
