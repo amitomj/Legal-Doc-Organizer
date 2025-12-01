@@ -128,9 +128,13 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
     }
   };
 
-  const confirmExtraction = (meta: ExtractionMeta) => {
+  const confirmExtraction = (meta: ExtractionMeta, newRange?: { start: number, end: number }) => {
     if (startPage) {
-      onAddExtraction(startPage, pageNumber, meta);
+      // Use the range from the modal if edited, otherwise use the selection
+      const s = newRange ? newRange.start : startPage;
+      const e = newRange ? newRange.end : pageNumber;
+      
+      onAddExtraction(s, e, meta);
       setStartPage(null);
       setIsModalOpen(false);
     }

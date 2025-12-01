@@ -36,3 +36,19 @@ export interface ExtractionMeta {
   selectedPeople: string[];
   selectedFacts: string[];
 }
+
+export interface SearchResult {
+  fileId: string;
+  extractionId: string;
+  volume: string;
+  category: string;
+  categoryName?: string;
+  manualNumber: string;
+  docType: string;
+  people: string[];
+  facts: string[];
+  startPage: number;
+  endPage: number;
+}
+
+export type OnConfirmExtraction = (data: ExtractionMeta, newPageRange?: { start: number; end: number }) => void;

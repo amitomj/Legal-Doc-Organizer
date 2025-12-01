@@ -277,7 +277,7 @@ const App: React.FC = () => {
     });
   };
 
-  const confirmSearchEdit = (meta: ExtractionMeta) => {
+  const confirmSearchEdit = (meta: ExtractionMeta, newRange?: { start: number, end: number }) => {
     if (!editingExtraction) return;
 
     setFiles(prev => prev.map(f => {
@@ -288,6 +288,9 @@ const App: React.FC = () => {
             if (e.id === editingExtraction.extraction.id) {
                return {
                  ...e,
+                 // If new range provided, use it. Else keep existing.
+                 startPage: newRange ? newRange.start : e.startPage,
+                 endPage: newRange ? newRange.end : e.endPage,
                  manualNumber: meta.manualNumber,
                  docType: meta.docType,
                  people: meta.selectedPeople,

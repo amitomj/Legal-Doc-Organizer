@@ -1,12 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, User, UserPlus, Pencil, X as CloseIcon, ClipboardList, Move, ExternalLink, Minimize2, Monitor, List } from 'lucide-react';
-import { ExtractionMeta, Person, PersonType } from '../types';
+import { ExtractionMeta, Person, PersonType, OnConfirmExtraction } from '../types';
 
 interface ExtractionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (data: ExtractionMeta) => void;
+  onConfirm: OnConfirmExtraction;
   pageRange: { start: number; end: number };
   people: Person[];
   onAddPerson: (name: string, type: PersonType) => void;
@@ -117,6 +117,10 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
   const [isCustomType, setIsCustomType] = useState(false);
   const [customType, setCustomType] = useState('');
   
+  // Page Editing State
+  const [editStartPage, setEditStartPage] = useState<number>(0);
+  const [editEndPage, setEditEndPage] = useState<number>(0);
+
   // Bulk Import States
   const [isBulkImportingType, setIsBulkImportingType] = useState(false);
   const [bulkTypeInput, setBulkTypeInput] = useState('');
@@ -155,6 +159,9 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
   // Reset or Populate states when opening
   useEffect(() => {
     if (isOpen) {
+      setEditStartPage(pageRange.start);
+      setEditEndPage(pageRange.end);
+
       if (initialData) {
         // Edit Mode: Pre-fill data
         setManualNumber(initialData.manualNumber);
@@ -192,7 +199,7 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
       setManualNumber('');
       setPosition(null); 
     }
-  }, [isOpen, initialData]);
+  }, [isOpen, initialData, pageRange]);
 
   if (!isOpen) return null;
 
@@ -239,12 +246,18 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
       let finalFacts = Array.from(selectedFacts);
       if (finalFacts.length === 0) finalFacts = ['Prova geral'];
 
+      // Validation
+      if (editStartPage > editEndPage) {
+        alert("A página inicial não pode ser maior que a final.");
+        return;
+      }
+
       onConfirm({ 
         manualNumber, 
         docType: finalType,
         selectedPeople: Array.from(selectedPeople),
         selectedFacts: finalFacts
-      });
+      }, { start: editStartPage, end: editEndPage });
       
       // Cleanup is handled by useEffect on next open/close or parent closes modal
       // We still clear some local edit state just in case
@@ -474,7 +487,26 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
             {!isPoppedOut && <Move className="w-4 h-4 opacity-70" />} 
             {initialData ? 'Editar Classificação' : 'Classificar Documento'}
           </h2>
-          <p className="text-blue-100 text-xs ml-6">Páginas {pageRange.start} a {pageRange.end}</p>
+          <div className="flex items-center gap-2 mt-1 ml-6 text-blue-100 text-xs font-mono">
+            <span>Páginas:</span>
+            <input 
+              type="number" 
+              min={1}
+              value={editStartPage}
+              onChange={(e) => setEditStartPage(parseInt(e.target.value) || 0)}
+              className="w-12 text-center text-blue-900 rounded px-1 py-0.5"
+              onMouseDown={(e) => e.stopPropagation()} // Allow clicking without drag
+            />
+            <span>a</span>
+            <input 
+              type="number" 
+              min={editStartPage}
+              value={editEndPage}
+              onChange={(e) => setEditEndPage(parseInt(e.target.value) || 0)}
+              className="w-12 text-center text-blue-900 rounded px-1 py-0.5"
+              onMouseDown={(e) => e.stopPropagation()} // Allow clicking without drag
+            />
+          </div>
         </div>
         
         <div className="flex items-center gap-2">

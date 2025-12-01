@@ -1,5 +1,5 @@
 import { Document, Packer, Paragraph, Table, TableCell, TableRow, WidthType, HeadingLevel, AlignmentType, TextRun } from "docx";
-import { CaseFile } from "../types";
+import { CaseFile, SearchResult } from "../types";
 import { sanitizeFilename } from "../constants";
 
 const HEADING_COLOR = "2E74B5";
@@ -135,6 +135,66 @@ export const generateWordReport = async (files: CaseFile[]): Promise<Blob> => {
     sections: [{
       properties: {},
       children: docChildren
+    }]
+  });
+
+  return await Packer.toBlob(doc);
+};
+
+// --- SEARCH REPORT GENERATOR ---
+export const generateSearchReport = async (results: SearchResult[]): Promise<Blob> => {
+  const rows: TableRow[] = [];
+
+  // Header
+  rows.push(new TableRow({
+    tableHeader: true,
+    children: [
+      new TableCell({ children: [new Paragraph({ text: "N.º", bold: true })], width: { size: 10, type: WidthType.PERCENTAGE }, shading: { fill: "E0E0E0" } }),
+      new TableCell({ children: [new Paragraph({ text: "Tipo", bold: true })], width: { size: 15, type: WidthType.PERCENTAGE }, shading: { fill: "E0E0E0" } }),
+      new TableCell({ children: [new Paragraph({ text: "Localização", bold: true })], width: { size: 25, type: WidthType.PERCENTAGE }, shading: { fill: "E0E0E0" } }),
+      new TableCell({ children: [new Paragraph({ text: "Factos", bold: true })], width: { size: 25, type: WidthType.PERCENTAGE }, shading: { fill: "E0E0E0" } }),
+      new TableCell({ children: [new Paragraph({ text: "Intervenientes", bold: true })], width: { size: 25, type: WidthType.PERCENTAGE }, shading: { fill: "E0E0E0" } }),
+    ]
+  }));
+
+  results.forEach(res => {
+    // Location Text
+    const locationText = res.category === 'Autos Principais' 
+      ? `Autos - Vol. ${res.volume} (pág. ${res.startPage}-${res.endPage})`
+      : `${res.categoryName} - Vol. ${res.volume} (pág. ${res.startPage}-${res.endPage})`;
+
+    // Facts
+    const factsParagraphs = res.facts.map(f => new Paragraph({ text: f, spacing: { after: 40 } }));
+
+    // People
+    const peopleParagraphs = res.people.sort().map(p => new Paragraph({ text: p, spacing: { after: 40 } }));
+
+    rows.push(new TableRow({
+      children: [
+        new TableCell({ children: [new Paragraph(res.manualNumber)] }),
+        new TableCell({ children: [new Paragraph(res.docType)] }),
+        new TableCell({ children: [new Paragraph(locationText)] }),
+        new TableCell({ children: factsParagraphs }),
+        new TableCell({ children: peopleParagraphs.length > 0 ? peopleParagraphs : [new Paragraph("-")] }),
+      ]
+    }));
+  });
+
+  const doc = new Document({
+    sections: [{
+      properties: {},
+      children: [
+        new Paragraph({
+          text: "Relatório de Pesquisa - Organizador de Autos",
+          heading: HeadingLevel.TITLE,
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 400 }
+        }),
+        new Table({
+          rows: rows,
+          width: { size: 100, type: WidthType.PERCENTAGE },
+        })
+      ]
     }]
   });
 

@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Filter, FileText, User, FolderOpen, ArrowRight, X, ExternalLink, Eye, List, Pencil } from 'lucide-react';
-import { CaseFile, Person } from '../types';
-import { generatePartialPdf } from '../services/pdfProcessing';
+import { Search, Filter, FileText, User, FolderOpen, ArrowRight, X, ExternalLink, Eye, List, Pencil, Archive } from 'lucide-react';
+import { CaseFile, Person, SearchResult } from '../types';
+import { generatePartialPdf, processAndExportSearchResults } from '../services/pdfProcessing';
 
 interface SearchDashboardProps {
   files: CaseFile[];
@@ -10,20 +10,6 @@ interface SearchDashboardProps {
   facts: string[];
   onNavigate: (fileId: string, pageNumber: number) => void;
   onEdit: (fileId: string, extractionId: string) => void;
-}
-
-interface SearchResult {
-  fileId: string;
-  extractionId: string;
-  volume: string;
-  category: string;
-  categoryName?: string;
-  manualNumber: string;
-  docType: string;
-  people: string[];
-  facts: string[];
-  startPage: number;
-  endPage: number;
 }
 
 const SearchDashboard: React.FC<SearchDashboardProps> = ({ 
@@ -40,6 +26,7 @@ const SearchDashboard: React.FC<SearchDashboardProps> = ({
   const [personFilter, setPersonFilter] = useState('');
   const [factFilter, setFactFilter] = useState('');
   const [locationFilter, setLocationFilter] = useState(''); // Format: "Category|Name"
+  const [isExporting, setIsExporting] = useState(false);
 
   // 1. Build dynamic list of locations (Autos, specific Apensos, specific Anexos)
   const locations = useMemo(() => {
@@ -140,15 +127,39 @@ const SearchDashboard: React.FC<SearchDashboardProps> = ({
     }
   };
 
+  const handleExportResults = async () => {
+    if (results.length === 0) return;
+    setIsExporting(true);
+    try {
+      await processAndExportSearchResults(files, results);
+    } catch (e) {
+      console.error(e);
+      alert("Erro ao exportar resultados.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full bg-gray-50 overflow-hidden">
       
       {/* Header / Filters Section */}
       <div className="bg-white border-b border-gray-200 p-6 shadow-sm z-10">
-        <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-          <Search className="w-6 h-6 text-blue-600" />
-          Pesquisar Processo
-        </h2>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+            <Search className="w-6 h-6 text-blue-600" />
+            Pesquisar Processo
+          </h2>
+          
+          <button
+            onClick={handleExportResults}
+            disabled={results.length === 0 || isExporting}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-colors shadow-sm font-medium"
+          >
+             {isExporting ? <span className="animate-spin">⏳</span> : <Archive className="w-4 h-4" />}
+             Exportar Resultados
+          </button>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           
