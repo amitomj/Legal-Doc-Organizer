@@ -13,6 +13,7 @@ export interface Extraction {
   startPage: number;
   endPage: number;
   manualNumber: string;
+  articles: string; // New field for Articles
   docType: string;
   people: string[]; // List of person names associated
   facts: string[]; // List of facts associated
@@ -32,6 +33,7 @@ export interface CaseFile {
 
 export interface ExtractionMeta {
   manualNumber: string;
+  articles: string; // New field
   docType: string;
   selectedPeople: string[];
   selectedFacts: string[];
@@ -44,6 +46,7 @@ export interface SearchResult {
   category: string;
   categoryName?: string;
   manualNumber: string;
+  articles: string; // New field
   docType: string;
   people: string[];
   facts: string[];

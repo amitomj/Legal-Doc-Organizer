@@ -88,6 +88,7 @@ const SearchDashboard: React.FC<SearchDashboardProps> = ({
           category: file.category,
           categoryName: file.categoryName,
           manualNumber: ext.manualNumber,
+          articles: ext.articles, // Added articles
           docType: ext.docType,
           people: ext.people,
           facts: ext.facts || ['Prova geral'],
@@ -288,6 +289,7 @@ const SearchDashboard: React.FC<SearchDashboardProps> = ({
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200">
                     <th className="px-6 py-3 font-bold text-gray-600 w-20">N.º</th>
+                    <th className="px-6 py-3 font-bold text-gray-600">Artigos</th>
                     <th className="px-6 py-3 font-bold text-gray-600">Tipo</th>
                     <th className="px-6 py-3 font-bold text-gray-600">Localização</th>
                     <th className="px-6 py-3 font-bold text-gray-600">Factos</th>
@@ -300,6 +302,9 @@ const SearchDashboard: React.FC<SearchDashboardProps> = ({
                     <tr key={res.extractionId} className="hover:bg-blue-50 transition-colors group">
                       <td className="px-6 py-4 font-mono font-medium text-blue-600">
                         {res.manualNumber}
+                      </td>
+                      <td className="px-6 py-4 font-mono text-xs text-gray-600">
+                        {res.articles || '-'}
                       </td>
                       <td className="px-6 py-4 text-gray-800 font-medium">
                         {res.docType}

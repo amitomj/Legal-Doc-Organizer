@@ -4,6 +4,16 @@ import { sanitizeFilename } from "../constants";
 
 const HEADING_COLOR = "2E74B5";
 
+// Helper to format articles with hash prefix
+const formatArticlesVal = (val: string | undefined): string => {
+  if (!val) return "-";
+  return val.split(',')
+    .map(s => s.trim())
+    .filter(s => s.length > 0)
+    .map(s => s.startsWith('#') ? s : `#${s}`)
+    .join(', ');
+};
+
 export const generateWordReport = async (files: CaseFile[]): Promise<Blob> => {
   // Group files by category structure
   const autos = files.filter(f => f.category === 'Autos Principais');
@@ -38,10 +48,11 @@ export const generateWordReport = async (files: CaseFile[]): Promise<Blob> => {
     rows.push(new TableRow({
       tableHeader: true,
       children: [
-        new TableCell({ children: [new Paragraph({ text: "Num.", bold: true })], width: { size: 10, type: WidthType.PERCENTAGE }, shading: { fill: "E0E0E0" } }),
-        new TableCell({ children: [new Paragraph({ text: "Volume", bold: true })], width: { size: 10, type: WidthType.PERCENTAGE }, shading: { fill: "E0E0E0" } }),
-        new TableCell({ children: [new Paragraph({ text: "Tipo de Prova", bold: true })], width: { size: 20, type: WidthType.PERCENTAGE }, shading: { fill: "E0E0E0" } }),
-        new TableCell({ children: [new Paragraph({ text: "Factos", bold: true })], width: { size: 20, type: WidthType.PERCENTAGE }, shading: { fill: "E0E0E0" } }),
+        new TableCell({ children: [new Paragraph({ text: "Num.", bold: true })], width: { size: 8, type: WidthType.PERCENTAGE }, shading: { fill: "E0E0E0" } }),
+        new TableCell({ children: [new Paragraph({ text: "Artigos", bold: true })], width: { size: 10, type: WidthType.PERCENTAGE }, shading: { fill: "E0E0E0" } }), 
+        new TableCell({ children: [new Paragraph({ text: "Volume", bold: true })], width: { size: 8, type: WidthType.PERCENTAGE }, shading: { fill: "E0E0E0" } }),
+        new TableCell({ children: [new Paragraph({ text: "Tipo de Prova", bold: true })], width: { size: 17, type: WidthType.PERCENTAGE }, shading: { fill: "E0E0E0" } }),
+        new TableCell({ children: [new Paragraph({ text: "Factos", bold: true })], width: { size: 17, type: WidthType.PERCENTAGE }, shading: { fill: "E0E0E0" } }),
         new TableCell({ children: [new Paragraph({ text: "Intervenientes", bold: true })], width: { size: 20, type: WidthType.PERCENTAGE }, shading: { fill: "E0E0E0" } }),
         new TableCell({ children: [new Paragraph({ text: "Nome do Ficheiro PDF", bold: true })], width: { size: 20, type: WidthType.PERCENTAGE }, shading: { fill: "E0E0E0" } }),
       ]
@@ -61,28 +72,32 @@ export const generateWordReport = async (files: CaseFile[]): Promise<Blob> => {
         
         // Sort names alphabetically (A-Z) strictly
         const displayNames = [...ext.people].sort((a, b) => a.localeCompare(b));
-        // Create paragraphs (one per line)
-        const peopleParagraphs = displayNames.map(name => new Paragraph({ text: name, spacing: { after: 60 } }));
-
-        // Handle Facts - Display in order of creation/selection
+        
+        // Determine facts list
         const factsDisplay = ext.facts && ext.facts.length > 0 ? ext.facts : ['Prova geral'];
-        const factsParagraphs = factsDisplay.map(f => new Paragraph({ text: f, spacing: { after: 60 } }));
 
-        // Reconstruct filename
-        const factsSegment = sanitizeFilename(factsDisplay.join('_'));
-        // a.b.c.d.e
-        const filename = `${sanitizeFilename(ext.manualNumber)}.${categorySegment}.${volumeSegment}.${sanitizeFilename(ext.docType)}.${factsSegment}.pdf`;
+        // Reconstruct filename (includes all facts joined)
+        const allFactsSegment = sanitizeFilename(factsDisplay.join('_'));
+        const filename = `${sanitizeFilename(ext.manualNumber)}.${categorySegment}.${volumeSegment}.${sanitizeFilename(ext.docType)}.${allFactsSegment}.pdf`;
 
-        rows.push(new TableRow({
-          children: [
-            new TableCell({ children: [new Paragraph(ext.manualNumber)] }),
-            new TableCell({ children: [new Paragraph(file.volume)] }),
-            new TableCell({ children: [new Paragraph(ext.docType)] }),
-            new TableCell({ children: factsParagraphs }),
-            new TableCell({ children: peopleParagraphs.length > 0 ? peopleParagraphs : [new Paragraph("-")] }),
-            new TableCell({ children: [new Paragraph({ text: filename, style: "Code" })] }),
-          ]
-        }));
+        // Create a row for EACH fact
+        factsDisplay.forEach(fact => {
+          // Re-generate people paragraphs for each row instance to ensure clean document structure
+          // ADDED COMMA HERE
+          const peopleParagraphs = displayNames.map(name => new Paragraph({ text: `${name},`, spacing: { after: 60 } }));
+
+          rows.push(new TableRow({
+            children: [
+              new TableCell({ children: [new Paragraph(ext.manualNumber)] }),
+              new TableCell({ children: [new Paragraph(formatArticlesVal(ext.articles))] }), // Formatted with #
+              new TableCell({ children: [new Paragraph(file.volume)] }),
+              new TableCell({ children: [new Paragraph(ext.docType)] }),
+              new TableCell({ children: [new Paragraph(fact)] }), // Single Fact per Row
+              new TableCell({ children: peopleParagraphs.length > 0 ? peopleParagraphs : [new Paragraph("-")] }),
+              new TableCell({ children: [new Paragraph({ text: filename, style: "Code" })] }),
+            ]
+          }));
+        });
       });
     });
 
@@ -150,9 +165,10 @@ export const generateSearchReport = async (results: SearchResult[]): Promise<Blo
     tableHeader: true,
     children: [
       new TableCell({ children: [new Paragraph({ text: "N.º", bold: true })], width: { size: 10, type: WidthType.PERCENTAGE }, shading: { fill: "E0E0E0" } }),
+      new TableCell({ children: [new Paragraph({ text: "Artigos", bold: true })], width: { size: 10, type: WidthType.PERCENTAGE }, shading: { fill: "E0E0E0" } }), 
       new TableCell({ children: [new Paragraph({ text: "Tipo", bold: true })], width: { size: 15, type: WidthType.PERCENTAGE }, shading: { fill: "E0E0E0" } }),
-      new TableCell({ children: [new Paragraph({ text: "Localização", bold: true })], width: { size: 25, type: WidthType.PERCENTAGE }, shading: { fill: "E0E0E0" } }),
-      new TableCell({ children: [new Paragraph({ text: "Factos", bold: true })], width: { size: 25, type: WidthType.PERCENTAGE }, shading: { fill: "E0E0E0" } }),
+      new TableCell({ children: [new Paragraph({ text: "Localização", bold: true })], width: { size: 20, type: WidthType.PERCENTAGE }, shading: { fill: "E0E0E0" } }),
+      new TableCell({ children: [new Paragraph({ text: "Factos", bold: true })], width: { size: 20, type: WidthType.PERCENTAGE }, shading: { fill: "E0E0E0" } }),
       new TableCell({ children: [new Paragraph({ text: "Intervenientes", bold: true })], width: { size: 25, type: WidthType.PERCENTAGE }, shading: { fill: "E0E0E0" } }),
     ]
   }));
@@ -167,11 +183,13 @@ export const generateSearchReport = async (results: SearchResult[]): Promise<Blo
     const factsParagraphs = res.facts.map(f => new Paragraph({ text: f, spacing: { after: 40 } }));
 
     // People
-    const peopleParagraphs = res.people.sort().map(p => new Paragraph({ text: p, spacing: { after: 40 } }));
+    // ADDED COMMA HERE
+    const peopleParagraphs = res.people.sort().map(p => new Paragraph({ text: `${p},`, spacing: { after: 40 } }));
 
     rows.push(new TableRow({
       children: [
         new TableCell({ children: [new Paragraph(res.manualNumber)] }),
+        new TableCell({ children: [new Paragraph(formatArticlesVal(res.articles))] }), // Formatted with #
         new TableCell({ children: [new Paragraph(res.docType)] }),
         new TableCell({ children: [new Paragraph(locationText)] }),
         new TableCell({ children: factsParagraphs }),

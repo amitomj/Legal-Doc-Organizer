@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, User, UserPlus, Pencil, X as CloseIcon, ClipboardList, Move, ExternalLink, Minimize2, Monitor, List } from 'lucide-react';
+import { Check, User, UserPlus, Pencil, X as CloseIcon, ClipboardList, Move, Monitor, Minimize2, List, Trash2, Search, Settings } from 'lucide-react';
 import { ExtractionMeta, Person, PersonType, OnConfirmExtraction } from '../types';
 
 interface ExtractionModalProps {
@@ -12,17 +12,19 @@ interface ExtractionModalProps {
   onAddPerson: (name: string, type: PersonType) => void;
   onBulkAddPeople: (names: string[], type: PersonType) => void;
   onUpdatePerson: (id: string, name: string, type?: PersonType) => void;
+  onDeletePerson: (id: string) => void;
   docTypes: string[];
   onAddDocType: (type: string) => void;
   onBulkAddDocTypes: (types: string[]) => void;
+  onDeleteDocType: (type: string) => void;
   facts: string[];
   onAddFact: (fact: string) => void;
   onBulkAddFacts: (facts: string[]) => void;
+  onDeleteFact: (fact: string) => void;
   initialData?: ExtractionMeta | null; // New prop for editing mode
 }
 
 // --- POPOUT WINDOW COMPONENT ---
-// This component handles creating a native browser window and rendering React content into it
 interface PopoutWindowProps {
   children: React.ReactNode;
   title: string;
@@ -71,7 +73,7 @@ const PopoutWindow: React.FC<PopoutWindowProps> = ({ children, title, onClose, o
 
     // Create root div for React Portal
     const div = win.document.createElement('div');
-    div.className = "h-full bg-gray-50 overflow-auto"; 
+    div.className = "h-full bg-gray-50 overflow-hidden flex flex-col"; // Ensure full height and flex
     win.document.body.appendChild(div);
     win.document.body.className = "h-full m-0 bg-gray-50";
 
@@ -104,15 +106,19 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
   onAddPerson,
   onBulkAddPeople,
   onUpdatePerson,
+  onDeletePerson,
   docTypes,
   onAddDocType,
   onBulkAddDocTypes,
+  onDeleteDocType,
   facts,
   onAddFact,
   onBulkAddFacts,
+  onDeleteFact,
   initialData
 }) => {
   const [manualNumber, setManualNumber] = useState('');
+  const [articles, setArticles] = useState(''); // New Articles state
   const [docType, setDocType] = useState(docTypes[0] || 'Outro');
   const [isCustomType, setIsCustomType] = useState(false);
   const [customType, setCustomType] = useState('');
@@ -130,6 +136,7 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
   const [isBulkImportingFacts, setIsBulkImportingFacts] = useState(false);
   const [bulkFactsInput, setBulkFactsInput] = useState('');
   const [newFactInput, setNewFactInput] = useState('');
+  const [isManagingFacts, setIsManagingFacts] = useState(false);
   
   // Selection state
   const [selectedPeople, setSelectedPeople] = useState<Set<string>>(new Set());
@@ -138,6 +145,11 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
   const [newArguido, setNewArguido] = useState('');
   const [newTestemunha, setNewTestemunha] = useState('');
   const [newPerito, setNewPerito] = useState('');
+
+  // Search states for people columns
+  const [searchArguido, setSearchArguido] = useState('');
+  const [searchTestemunha, setSearchTestemunha] = useState('');
+  const [searchPerito, setSearchPerito] = useState('');
 
   // Bulk People States
   const [bulkImportColumn, setBulkImportColumn] = useState<PersonType | null>(null);
@@ -165,6 +177,7 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
       if (initialData) {
         // Edit Mode: Pre-fill data
         setManualNumber(initialData.manualNumber);
+        setArticles(initialData.articles || '');
         
         // Handle Doc Type
         if (docTypes.includes(initialData.docType)) {
@@ -185,6 +198,7 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
       } else {
         // Create Mode: Reset to defaults
         setManualNumber('');
+        setArticles('');
         setDocType(docTypes[0] || 'Outro');
         setIsCustomType(false);
         setCustomType('');
@@ -197,6 +211,7 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
       // Reset when closed
       setIsPoppedOut(false);
       setManualNumber('');
+      setArticles('');
       setPosition(null); 
     }
   }, [isOpen, initialData, pageRange]);
@@ -252,15 +267,29 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
         return;
       }
 
+      // --- FORMATTING ARTICLES ---
+      // Split by comma, trim, and pad numbers to 4 digits
+      const formattedArticles = articles
+        .split(',')
+        .map(n => n.trim())
+        .filter(n => n.length > 0)
+        .map(n => {
+            // Check if it looks like a number
+            if (/^\d+$/.test(n)) {
+                return n.padStart(4, '0');
+            }
+            return n;
+        })
+        .join(', ');
+
       onConfirm({ 
-        manualNumber, 
+        manualNumber: manualNumber, 
+        articles: formattedArticles,
         docType: finalType,
         selectedPeople: Array.from(selectedPeople),
         selectedFacts: finalFacts
       }, { start: editStartPage, end: editEndPage });
       
-      // Cleanup is handled by useEffect on next open/close or parent closes modal
-      // We still clear some local edit state just in case
       setPosition(null);
       setIsPoppedOut(false);
     }
@@ -277,6 +306,7 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
   };
 
   const toggleFact = (fact: string) => {
+     if (isManagingFacts) return; // Prevent toggling while deleting
      const next = new Set(selectedFacts);
      if (next.has(fact)) {
        next.delete(fact);
@@ -351,8 +381,29 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
     }
   }
 
-  const renderPersonColumn = (title: string, type: PersonType, inputValue: string, setInput: (v: string) => void, colorClass: string) => {
-    const filteredPeople = people.filter(p => p.type === type);
+  const handleDeleteCurrentDocType = () => {
+    if (window.confirm(`Tem a certeza que deseja eliminar "${docType}"?`)) {
+       onDeleteDocType(docType);
+       if (docTypes.length > 1) {
+         setDocType(docTypes[0]); // Reset to first available
+       }
+    }
+  }
+
+  const renderPersonColumn = (
+      title: string, 
+      type: PersonType, 
+      inputValue: string, 
+      setInput: (v: string) => void, 
+      colorClass: string,
+      searchTerm: string,
+      setSearchTerm: (v: string) => void
+    ) => {
+    
+    // Filter by type AND search term
+    const filteredPeople = people
+      .filter(p => p.type === type)
+      .filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
     
     return (
       <div className="flex-1 flex flex-col min-h-[150px] bg-gray-50 rounded-lg p-2 border border-gray-200">
@@ -396,9 +447,23 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
           </div>
         ) : (
           <>
+            {/* Search Input for Column */}
+            <div className="relative mb-2">
+              <Search className="w-3 h-3 text-gray-400 absolute left-2 top-1.5" />
+              <input 
+                type="text"
+                placeholder="Filtrar..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full text-xs pl-6 pr-2 py-1 border border-gray-200 rounded focus:ring-1 focus:ring-blue-200 outline-none"
+              />
+            </div>
+
             <div className="flex-1 overflow-y-auto max-h-[150px] space-y-1 mb-2">
             {filteredPeople.length === 0 ? (
-                <p className="text-xs text-gray-400 italic">Sem registos</p>
+                <p className="text-xs text-gray-400 italic">
+                  {searchTerm ? 'Sem resultados' : 'Sem registos'}
+                </p>
             ) : (
                 filteredPeople.map(p => (
                 <div key={p.id} className="group flex items-center justify-between hover:bg-gray-100 p-1 rounded">
@@ -436,13 +501,25 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
                             />
                             <span className="truncate" title={p.name}>{p.name}</span>
                         </label>
-                        <button 
-                        type="button" 
-                        onClick={() => startEditing(p)}
-                        className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-blue-600 px-1"
-                        >
-                        <Pencil className="w-3 h-3" />
-                        </button>
+                        
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button 
+                            type="button" 
+                            onClick={() => startEditing(p)}
+                            title="Editar"
+                            className="text-gray-400 hover:text-blue-600 px-1"
+                          >
+                            <Pencil className="w-3 h-3" />
+                          </button>
+                          <button 
+                            type="button" 
+                            onClick={() => onDeletePerson(p.id)}
+                            title="Eliminar"
+                            className="text-gray-400 hover:text-red-500 px-1"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
                     </>
                     )}
                 </div>
@@ -476,11 +553,11 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
 
   // --- RENDER CONTENT ---
   const ModalContent = (
-    <div className={`flex flex-col h-full bg-white ${isPoppedOut ? 'p-4' : ''}`}>
+    <div className={`flex flex-col h-full bg-white overflow-hidden ${isPoppedOut ? '' : ''}`}>
        {/* Header */}
       <div 
         onMouseDown={!isPoppedOut ? handleMouseDown : undefined}
-        className={`bg-blue-600 px-4 py-3 text-white shrink-0 flex justify-between items-center select-none ${!isPoppedOut ? 'cursor-move rounded-t-xl' : 'rounded-lg mb-4'}`}
+        className={`bg-blue-600 px-4 py-3 text-white shrink-0 flex justify-between items-center select-none ${!isPoppedOut ? 'cursor-move rounded-t-xl' : ''}`}
       >
         <div>
           <h2 className="text-lg font-bold flex items-center gap-2">
@@ -510,7 +587,7 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
         </div>
         
         <div className="flex items-center gap-2">
-           {/* Pop-out Toggle - MORE EXPLICIT BUTTON */}
+           {/* Pop-out Toggle */}
            {!isPoppedOut ? (
              <button 
                onMouseDown={(e) => e.stopPropagation()} 
@@ -542,194 +619,246 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className={`flex-1 overflow-y-auto bg-white ${isPoppedOut ? 'rounded-lg border p-4' : 'p-6'}`}>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          {/* Manual Number */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">
-              Numeração Manual (Original)
-            </label>
-            <input 
-              type="text" 
-              autoFocus={!initialData} // Only autofocus if creating new
-              required
-              placeholder="Ex: 154"
-              value={manualNumber}
-              onChange={(e) => setManualNumber(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none text-lg"
-            />
-          </div>
-
-          {/* Doc Type Selection */}
-          <div>
-            <div className="flex justify-between items-center mb-1">
-              <label className="block text-sm font-semibold text-gray-700">Tipo de Documento</label>
-              <div className="flex gap-2 text-xs">
-                  <button 
-                      type="button" 
-                      onClick={() => setIsBulkImportingType(!isBulkImportingType)}
-                      className="text-blue-600 hover:underline"
-                  >
-                      Importar Lista
-                  </button>
-                  <span className="text-gray-300">|</span>
-                  <button 
-                      type="button" 
-                      onClick={() => setIsCustomType(!isCustomType)}
-                      className="text-blue-600 hover:underline"
-                  >
-                      {isCustomType ? 'Escolher da lista' : 'Criar novo tipo'}
-                  </button>
-              </div>
-            </div>
-
-            {isBulkImportingType ? (
-              <div className="bg-blue-50 p-2 rounded-lg border border-blue-200">
-                  <textarea 
-                      className="w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 h-24 mb-2"
-                      placeholder="Cole a lista de tipos aqui (um por linha)"
-                      value={bulkTypeInput}
-                      onChange={(e) => setBulkTypeInput(e.target.value)}
-                  />
-                   <div className="flex gap-2">
-                      <button 
-                          type="button" 
-                          onClick={handleBulkTypeSubmit}
-                          className="flex-1 bg-blue-600 text-white text-xs py-2 rounded hover:bg-blue-700 font-semibold"
-                      >
-                          Adicionar Tipos
-                      </button>
-                      <button 
-                          type="button" 
-                          onClick={() => setIsBulkImportingType(false)}
-                          className="px-3 border border-gray-300 rounded hover:bg-white"
-                      >
-                          Cancelar
-                      </button>
-                  </div>
-              </div>
-            ) : isCustomType ? (
+      <form onSubmit={handleSubmit} className="flex flex-col min-h-0 flex-1">
+        <div className="flex-1 overflow-y-auto p-6 bg-white">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            {/* Manual Number */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                Numeração Manual
+              </label>
               <input 
                 type="text" 
+                autoFocus={!initialData} // Only autofocus if creating new
                 required
-                placeholder="Nome do novo tipo..."
-                value={customType}
-                onChange={(e) => setCustomType(e.target.value)}
-                className="w-full border border-blue-300 bg-blue-50 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none"
+                placeholder="Ex: 0154"
+                value={manualNumber}
+                onChange={(e) => setManualNumber(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none text-lg"
               />
-            ) : (
-              <select 
-                value={docType}
-                onChange={(e) => setDocType(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none"
-              >
-                {docTypes.map(type => (
-                  <option key={type} value={type}>{type}</option>
-                ))}
-              </select>
-            )}
-          </div>
-        </div>
+            </div>
 
-        {/* FACTO SECTION */}
-        <div className="mb-6 border border-indigo-100 bg-indigo-50/50 rounded-lg p-4">
-             <div className="flex justify-between items-center mb-2">
-                <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                    <List className="w-4 h-4 text-indigo-600" /> Factos Associados
-                </label>
+            {/* Articles Field */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                Artigos Referenciados
+              </label>
+              <input 
+                type="text" 
+                placeholder="Ex: 1, 55 (Guarda como 0001, 0055)"
+                value={articles}
+                onChange={(e) => setArticles(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none text-lg bg-yellow-50"
+              />
+              <p className="text-[10px] text-gray-400 mt-1">4 dígitos automáticos (0000) ao separar por vírgulas.</p>
+            </div>
+
+            {/* Doc Type Selection */}
+            <div className="md:col-span-2">
+              <div className="flex justify-between items-center mb-1">
+                <label className="block text-sm font-semibold text-gray-700">Tipo de Documento</label>
                 <div className="flex gap-2 text-xs">
                     <button 
                         type="button" 
-                        onClick={() => setIsBulkImportingFacts(!isBulkImportingFacts)}
-                        className="text-indigo-600 hover:underline flex items-center gap-1"
+                        onClick={() => setIsBulkImportingType(!isBulkImportingType)}
+                        className="text-blue-600 hover:underline"
                     >
-                        <ClipboardList className="w-3 h-3"/> Importar
+                        Importar Lista
+                    </button>
+                    <span className="text-gray-300">|</span>
+                    <button 
+                        type="button" 
+                        onClick={() => setIsCustomType(!isCustomType)}
+                        className="text-blue-600 hover:underline"
+                    >
+                        {isCustomType ? 'Escolher da lista' : 'Criar novo tipo'}
                     </button>
                 </div>
-             </div>
+              </div>
 
-             {isBulkImportingFacts ? (
-                 <div className="bg-white p-2 rounded border border-indigo-200">
+              {isBulkImportingType ? (
+                <div className="bg-blue-50 p-2 rounded-lg border border-blue-200">
                     <textarea 
-                        className="w-full text-xs p-2 border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 h-20 mb-2"
-                        placeholder="Cole lista de factos aqui (um por linha)"
-                        value={bulkFactsInput}
-                        onChange={(e) => setBulkFactsInput(e.target.value)}
+                        className="w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 h-24 mb-2"
+                        placeholder="Cole a lista de tipos aqui (um por linha)"
+                        value={bulkTypeInput}
+                        onChange={(e) => setBulkTypeInput(e.target.value)}
                     />
                     <div className="flex gap-2">
-                        <button type="button" onClick={handleBulkFactsSubmit} className="bg-indigo-600 text-white text-xs px-3 py-1 rounded">Adicionar</button>
-                        <button type="button" onClick={() => setIsBulkImportingFacts(false)} className="bg-gray-200 text-gray-700 text-xs px-3 py-1 rounded">Cancelar</button>
-                    </div>
-                 </div>
-             ) : (
-                 <div className="flex flex-col gap-2">
-                    {/* List of Facts */}
-                    <div className="flex flex-wrap gap-2 max-h-[100px] overflow-y-auto p-1">
-                        {facts.map(fact => (
-                            <label key={fact} className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs border cursor-pointer select-none transition-colors ${selectedFacts.has(fact) ? 'bg-indigo-100 border-indigo-300 text-indigo-800 font-medium' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-                                <input 
-                                    type="checkbox" 
-                                    checked={selectedFacts.has(fact)}
-                                    onChange={() => toggleFact(fact)}
-                                    className="hidden"
-                                />
-                                {selectedFacts.has(fact) && <Check className="w-3 h-3" />}
-                                {fact}
-                            </label>
-                        ))}
-                    </div>
-                    {/* Add new fact */}
-                    <div className="flex gap-2 mt-1">
-                        <input 
-                            type="text" 
-                            value={newFactInput}
-                            onChange={(e) => setNewFactInput(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddFactClick())}
-                            placeholder="Criar novo facto..."
-                            className="flex-1 text-xs border border-gray-300 rounded px-2 py-1.5 focus:ring-1 focus:ring-indigo-500 outline-none"
-                        />
-                         <button 
+                        <button 
                             type="button" 
-                            onClick={handleAddFactClick}
-                            disabled={!newFactInput.trim()}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-xs font-medium disabled:opacity-50"
-                         >
-                             Adicionar
-                         </button>
+                            onClick={handleBulkTypeSubmit}
+                            className="flex-1 bg-blue-600 text-white text-xs py-2 rounded hover:bg-blue-700 font-semibold"
+                        >
+                            Adicionar Tipos
+                        </button>
+                        <button 
+                            type="button" 
+                            onClick={() => setIsBulkImportingType(false)}
+                            className="px-3 border border-gray-300 rounded hover:bg-white"
+                        >
+                            Cancelar
+                        </button>
                     </div>
-                 </div>
-             )}
+                </div>
+              ) : isCustomType ? (
+                <input 
+                  type="text" 
+                  required
+                  placeholder="Nome do novo tipo..."
+                  value={customType}
+                  onChange={(e) => setCustomType(e.target.value)}
+                  className="w-full border border-blue-300 bg-blue-50 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none"
+                />
+              ) : (
+                <div className="flex gap-2">
+                  <select 
+                    value={docType}
+                    onChange={(e) => setDocType(e.target.value)}
+                    className="flex-1 border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none"
+                  >
+                    {docTypes.map(type => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={handleDeleteCurrentDocType}
+                    className="p-3 text-gray-400 hover:text-red-500 hover:bg-red-50 border border-gray-300 rounded-lg transition-colors"
+                    title="Eliminar este tipo da lista"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* FACTO SECTION */}
+          <div className="mb-6 border border-indigo-100 bg-indigo-50/50 rounded-lg p-4">
+              <div className="flex justify-between items-center mb-2">
+                  <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                      <List className="w-4 h-4 text-indigo-600" /> Factos Associados
+                  </label>
+                  <div className="flex gap-2 text-xs">
+                      <button 
+                          type="button" 
+                          onClick={() => setIsManagingFacts(!isManagingFacts)}
+                          className={`${isManagingFacts ? 'text-orange-600 font-bold bg-orange-100 px-2 rounded' : 'text-indigo-600 hover:underline'} flex items-center gap-1 transition-all`}
+                      >
+                          {isManagingFacts ? <><CloseIcon className="w-3 h-3"/> Terminar Edição</> : <><Settings className="w-3 h-3"/> Gerir</>}
+                      </button>
+                      <span className="text-gray-300">|</span>
+                      <button 
+                          type="button" 
+                          onClick={() => setIsBulkImportingFacts(!isBulkImportingFacts)}
+                          className="text-indigo-600 hover:underline flex items-center gap-1"
+                      >
+                          <ClipboardList className="w-3 h-3"/> Importar
+                      </button>
+                  </div>
+              </div>
+
+              {isBulkImportingFacts ? (
+                  <div className="bg-white p-2 rounded border border-indigo-200">
+                      <textarea 
+                          className="w-full text-xs p-2 border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 h-20 mb-2"
+                          placeholder="Cole lista de factos aqui (um por linha)"
+                          value={bulkFactsInput}
+                          onChange={(e) => setBulkFactsInput(e.target.value)}
+                      />
+                      <div className="flex gap-2">
+                          <button type="button" onClick={handleBulkFactsSubmit} className="bg-indigo-600 text-white text-xs px-3 py-1 rounded">Adicionar</button>
+                          <button type="button" onClick={() => setIsBulkImportingFacts(false)} className="bg-gray-200 text-gray-700 text-xs px-3 py-1 rounded">Cancelar</button>
+                      </div>
+                  </div>
+              ) : (
+                  <div className="flex flex-col gap-2">
+                      {/* List of Facts */}
+                      <div className="flex flex-wrap gap-2 max-h-[100px] overflow-y-auto p-1">
+                          {facts.map(fact => (
+                              isManagingFacts ? (
+                                <div key={fact} className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs border bg-red-50 border-red-200 text-red-700">
+                                   <span>{fact}</span>
+                                   <button 
+                                     type="button"
+                                     onClick={() => onDeleteFact(fact)}
+                                     className="p-0.5 hover:bg-red-200 rounded-full"
+                                   >
+                                     <CloseIcon className="w-3 h-3" />
+                                   </button>
+                                </div>
+                              ) : (
+                                <label key={fact} className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs border cursor-pointer select-none transition-colors ${selectedFacts.has(fact) ? 'bg-indigo-100 border-indigo-300 text-indigo-800 font-medium' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                                    <input 
+                                        type="checkbox" 
+                                        checked={selectedFacts.has(fact)}
+                                        onChange={() => toggleFact(fact)}
+                                        className="hidden"
+                                    />
+                                    {selectedFacts.has(fact) && <Check className="w-3 h-3" />}
+                                    {fact}
+                                </label>
+                              )
+                          ))}
+                      </div>
+                      {/* Add new fact */}
+                      {!isManagingFacts && (
+                        <div className="flex gap-2 mt-1">
+                            <input 
+                                type="text" 
+                                value={newFactInput}
+                                onChange={(e) => setNewFactInput(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddFactClick())}
+                                placeholder="Criar novo facto..."
+                                className="flex-1 text-xs border border-gray-300 rounded px-2 py-1.5 focus:ring-1 focus:ring-indigo-500 outline-none"
+                            />
+                            <button 
+                                type="button" 
+                                onClick={handleAddFactClick}
+                                disabled={!newFactInput.trim()}
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-xs font-medium disabled:opacity-50"
+                            >
+                                Adicionar
+                            </button>
+                        </div>
+                      )}
+                  </div>
+              )}
+          </div>
+
+          {/* People Selection Section */}
+          <div className="mb-6">
+            <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+              <User className="w-4 h-4" /> Associar Intervenientes
+            </label>
+            <div className="flex flex-col md:flex-row gap-3">
+                {renderPersonColumn('Arguidos / Suspeitos', 'Arguido', newArguido, setNewArguido, 'text-red-600', searchArguido, setSearchArguido)}
+                {renderPersonColumn('Testemunhas / Outros', 'Testemunha', newTestemunha, setNewTestemunha, 'text-amber-600', searchTestemunha, setSearchTestemunha)}
+                {renderPersonColumn('Polícias / Peritos', 'Perito', newPerito, setNewPerito, 'text-blue-600', searchPerito, setSearchPerito)}
+            </div>
+          </div>
         </div>
 
-        {/* People Selection Section */}
-        <div className="mb-6">
-           <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-             <User className="w-4 h-4" /> Associar Intervenientes
-           </label>
-           <div className="flex flex-col md:flex-row gap-3">
-              {renderPersonColumn('Arguidos / Suspeitos', 'Arguido', newArguido, setNewArguido, 'text-red-600')}
-              {renderPersonColumn('Testemunhas / Outros', 'Testemunha', newTestemunha, setNewTestemunha, 'text-amber-600')}
-              {renderPersonColumn('Polícias / Peritos', 'Perito', newPerito, setNewPerito, 'text-blue-600')}
-           </div>
-        </div>
-
-        <div className="flex gap-3 pt-2 border-t border-gray-100">
-          <button 
-            type="button" 
-            onClick={onClose}
-            className="flex-1 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium"
-          >
-            Cancelar
-          </button>
-          <button 
-            type="submit" 
-            disabled={!manualNumber || (isCustomType && !customType)}
-            className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold py-3 rounded-lg shadow flex justify-center items-center gap-2"
-          >
-            <Check className="w-5 h-5" />
-            {initialData ? 'Guardar Alterações' : 'Guardar Classificação'}
-          </button>
+        {/* Footer Buttons - FIXED AT BOTTOM */}
+        <div className="p-4 bg-gray-50 border-t border-gray-200 shrink-0 z-10">
+          <div className="flex gap-3">
+            <button 
+              type="button" 
+              onClick={onClose}
+              className="flex-1 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium"
+            >
+              Cancelar
+            </button>
+            <button 
+              type="submit" 
+              disabled={!manualNumber || (isCustomType && !customType)}
+              className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold py-3 rounded-lg shadow flex justify-center items-center gap-2"
+            >
+              <Check className="w-5 h-5" />
+              {initialData ? 'Guardar Alterações' : 'Guardar Classificação'}
+            </button>
+          </div>
         </div>
       </form>
     </div>
@@ -756,9 +885,9 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
     <div 
       ref={modalRef}
       style={style}
-      className="fixed z-[100] w-full max-w-4xl bg-transparent pointer-events-auto"
+      className="fixed z-[100] w-full max-w-4xl bg-transparent pointer-events-auto max-h-[90vh] flex flex-col"
     >
-      <div className="bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-gray-200">
+      <div className="bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col h-full border border-gray-200">
          {ModalContent}
       </div>
     </div>

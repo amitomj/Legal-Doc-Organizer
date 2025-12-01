@@ -164,6 +164,10 @@ const App: React.FC = () => {
   // --- PEOPLE MANAGEMENT ---
 
   const handleAddPerson = (name: string, type: PersonType) => {
+    // Check for duplicates
+    if (people.some(p => p.name === name)) {
+      return;
+    }
     const newPerson: Person = {
       id: uuidv4(),
       name,
@@ -173,15 +177,23 @@ const App: React.FC = () => {
   };
 
   const handleBulkAddPeople = (names: string[], type: PersonType) => {
-    const newPeople = names.map(name => ({
-      id: uuidv4(),
-      name,
-      type
-    }));
+    const newPeople = names
+      .filter(name => !people.some(p => p.name === name)) // Filter duplicates
+      .map(name => ({
+        id: uuidv4(),
+        name,
+        type
+      }));
     setPeople(prev => [...prev, ...newPeople]);
   };
 
   const handleUpdatePerson = (id: string, newName: string, newType?: PersonType) => {
+    // Prevent rename to existing name
+    if (people.some(p => p.id !== id && p.name === newName)) {
+      alert("Já existe um interveniente com este nome.");
+      return;
+    }
+
     setPeople(prev => prev.map(p => 
       p.id === id ? { ...p, name: newName, type: newType || p.type } : p
     ));
@@ -190,7 +202,6 @@ const App: React.FC = () => {
     if (person) {
       const oldName = person.name;
       // If name changed, update extractions. 
-      // Note: Changing type doesn't affect extractions since extractions store names only.
       if (oldName !== newName) {
         setFiles(prev => prev.map(f => ({
           ...f,
@@ -201,6 +212,10 @@ const App: React.FC = () => {
         })));
       }
     }
+  };
+
+  const handleDeletePerson = (id: string) => {
+    setPeople(prev => prev.filter(p => p.id !== id));
   };
 
   // --- DOC TYPE & FACTS MANAGEMENT ---
@@ -218,6 +233,10 @@ const App: React.FC = () => {
     });
   };
 
+  const handleDeleteDocType = (type: string) => {
+    setDocTypes(prev => prev.filter(t => t !== type));
+  };
+
   const handleAddFact = (fact: string) => {
     if (!facts.includes(fact)) {
       setFacts(prev => [...prev, fact].sort());
@@ -231,6 +250,10 @@ const App: React.FC = () => {
     });
   };
 
+  const handleDeleteFact = (fact: string) => {
+    setFacts(prev => prev.filter(f => f !== fact));
+  };
+
   // --- EXTRACTION LOGIC ---
 
   const handleAddExtraction = (start: number, end: number, meta: ExtractionMeta) => {
@@ -241,6 +264,7 @@ const App: React.FC = () => {
       startPage: start,
       endPage: end,
       manualNumber: meta.manualNumber,
+      articles: meta.articles, // Added Articles
       docType: meta.docType,
       people: meta.selectedPeople,
       facts: meta.selectedFacts
@@ -292,6 +316,7 @@ const App: React.FC = () => {
                  startPage: newRange ? newRange.start : e.startPage,
                  endPage: newRange ? newRange.end : e.endPage,
                  manualNumber: meta.manualNumber,
+                 articles: meta.articles, // Update Articles
                  docType: meta.docType,
                  people: meta.selectedPeople,
                  facts: meta.selectedFacts
@@ -341,7 +366,7 @@ const App: React.FC = () => {
 
   const handleSaveProject = () => {
     const dataToSave = {
-      version: 3, // Version bump for facts
+      version: 4, // Version bump for articles
       date: new Date().toISOString(),
       people,
       docTypes,
@@ -385,10 +410,11 @@ const App: React.FC = () => {
           const restoredFiles = data.files.map((f: any) => ({
             ...f,
             file: null,
-            // Ensure extractions have facts array even if loading old project
+            // Ensure extractions have facts/articles arrays even if loading old project
             extractions: f.extractions.map((ext: any) => ({
                 ...ext,
-                facts: ext.facts || (ext.fact ? [ext.fact] : ['Prova geral'])
+                facts: ext.facts || (ext.fact ? [ext.fact] : ['Prova geral']),
+                articles: ext.articles || ''
             }))
           }));
           
@@ -420,6 +446,7 @@ const App: React.FC = () => {
   if (editingExtraction) {
       initialEditingData = {
           manualNumber: editingExtraction.extraction.manualNumber,
+          articles: editingExtraction.extraction.articles || '',
           docType: editingExtraction.extraction.docType,
           selectedPeople: editingExtraction.extraction.people,
           selectedFacts: editingExtraction.extraction.facts || []
@@ -539,12 +566,15 @@ const App: React.FC = () => {
                   onAddPerson={handleAddPerson}
                   onBulkAddPeople={handleBulkAddPeople}
                   onUpdatePerson={handleUpdatePerson}
+                  onDeletePerson={handleDeletePerson}
                   docTypes={docTypes}
                   onAddDocType={handleAddDocType}
                   onBulkAddDocTypes={handleBulkAddDocTypes}
+                  onDeleteDocType={handleDeleteDocType}
                   facts={facts}
                   onAddFact={handleAddFact}
                   onBulkAddFacts={handleBulkAddFacts}
+                  onDeleteFact={handleDeleteFact}
                   initialPage={initialPageToJump}
                   searchNavTrigger={searchNavTrigger}
               />
@@ -627,12 +657,15 @@ const App: React.FC = () => {
         onAddPerson={handleAddPerson}
         onBulkAddPeople={handleBulkAddPeople}
         onUpdatePerson={handleUpdatePerson}
+        onDeletePerson={handleDeletePerson}
         docTypes={docTypes}
         onAddDocType={handleAddDocType}
         onBulkAddDocTypes={handleBulkAddDocTypes}
+        onDeleteDocType={handleDeleteDocType}
         facts={facts}
         onAddFact={handleAddFact}
         onBulkAddFacts={handleBulkAddFacts}
+        onDeleteFact={handleDeleteFact}
         initialData={initialEditingData}
       />
 

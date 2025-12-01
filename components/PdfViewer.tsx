@@ -16,12 +16,15 @@ interface PdfViewerProps {
   onAddPerson: (name: string, type: PersonType) => void;
   onBulkAddPeople: (names: string[], type: PersonType) => void;
   onUpdatePerson: (id: string, name: string, type?: PersonType) => void;
+  onDeletePerson: (id: string) => void;
   docTypes: string[];
   onAddDocType: (type: string) => void;
   onBulkAddDocTypes: (types: string[]) => void;
+  onDeleteDocType: (type: string) => void;
   facts: string[];
   onAddFact: (fact: string) => void;
   onBulkAddFacts: (facts: string[]) => void;
+  onDeleteFact: (fact: string) => void;
   initialPage?: number | null;
   searchNavTrigger?: number; // Used to force navigation if page is same
 }
@@ -35,12 +38,15 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
   onAddPerson,
   onBulkAddPeople,
   onUpdatePerson,
+  onDeletePerson,
   docTypes,
   onAddDocType,
   onBulkAddDocTypes,
+  onDeleteDocType,
   facts,
   onAddFact,
   onBulkAddFacts,
+  onDeleteFact,
   initialPage,
   searchNavTrigger
 }) => {
@@ -294,12 +300,15 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
         onAddPerson={onAddPerson}
         onBulkAddPeople={onBulkAddPeople}
         onUpdatePerson={onUpdatePerson}
+        onDeletePerson={onDeletePerson}
         docTypes={docTypes}
         onAddDocType={onAddDocType}
         onBulkAddDocTypes={onBulkAddDocTypes}
+        onDeleteDocType={onDeleteDocType}
         facts={facts}
         onAddFact={onAddFact}
         onBulkAddFacts={onBulkAddFacts}
+        onDeleteFact={onDeleteFact}
       />
     </div>
   );
