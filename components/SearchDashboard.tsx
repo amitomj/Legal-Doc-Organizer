@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Filter, FileText, User, FolderOpen, ArrowRight, X, ExternalLink, Eye, List, Pencil, Archive } from 'lucide-react';
+import { Search, Filter, FileText, User, FolderOpen, ArrowRight, X, ExternalLink, Eye, List, Pencil, Archive, Hash } from 'lucide-react';
 import { CaseFile, Person, SearchResult } from '../types';
 import { generatePartialPdf, processAndExportSearchResults } from '../services/pdfProcessing';
 
@@ -22,6 +22,7 @@ const SearchDashboard: React.FC<SearchDashboardProps> = ({
 }) => {
   // Filters State
   const [manualNumFilter, setManualNumFilter] = useState('');
+  const [articleFilter, setArticleFilter] = useState(''); // New Article Filter
   const [docTypeFilter, setDocTypeFilter] = useState('');
   const [personFilter, setPersonFilter] = useState('');
   const [factFilter, setFactFilter] = useState('');
@@ -61,19 +62,28 @@ const SearchDashboard: React.FC<SearchDashboardProps> = ({
           return;
         }
 
-        // 2.3 Doc Type Filter (Exact match if selected)
+        // 2.3 Article Filter (Partial match)
+        if (articleFilter) {
+           // Ensure we search against the string representation
+           const articleStr = ext.articles || '';
+           if (!articleStr.includes(articleFilter)) {
+             return;
+           }
+        }
+
+        // 2.4 Doc Type Filter (Exact match if selected)
         if (docTypeFilter && ext.docType !== docTypeFilter) {
           return;
         }
 
-        // 2.4 Person Filter
+        // 2.5 Person Filter
         if (personFilter) {
            if (!ext.people.includes(personFilter)) {
              return;
            }
         }
 
-        // 2.5 Fact Filter
+        // 2.6 Fact Filter
         if (factFilter) {
           const extFacts = ext.facts || ['Prova geral'];
           if (!extFacts.includes(factFilter)) {
@@ -88,7 +98,7 @@ const SearchDashboard: React.FC<SearchDashboardProps> = ({
           category: file.category,
           categoryName: file.categoryName,
           manualNumber: ext.manualNumber,
-          articles: ext.articles, // Added articles
+          articles: ext.articles, 
           docType: ext.docType,
           people: ext.people,
           facts: ext.facts || ['Prova geral'],
@@ -99,12 +109,13 @@ const SearchDashboard: React.FC<SearchDashboardProps> = ({
     });
 
     return filtered;
-  }, [files, manualNumFilter, docTypeFilter, personFilter, factFilter, locationFilter]);
+  }, [files, manualNumFilter, articleFilter, docTypeFilter, personFilter, factFilter, locationFilter]);
 
-  const hasActiveFilters = manualNumFilter || docTypeFilter || personFilter || factFilter || locationFilter;
+  const hasActiveFilters = manualNumFilter || articleFilter || docTypeFilter || personFilter || factFilter || locationFilter;
 
   const clearFilters = () => {
     setManualNumFilter('');
+    setArticleFilter('');
     setDocTypeFilter('');
     setPersonFilter('');
     setFactFilter('');
@@ -162,7 +173,7 @@ const SearchDashboard: React.FC<SearchDashboardProps> = ({
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
           
           {/* Filter: Number */}
           <div className="relative">
@@ -176,6 +187,21 @@ const SearchDashboard: React.FC<SearchDashboardProps> = ({
                 className="w-full pl-9 pr-3 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all"
               />
               <Filter className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+            </div>
+          </div>
+
+          {/* Filter: Article */}
+          <div className="relative">
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Artigo</label>
+            <div className="relative">
+              <input
+                type="text"
+                value={articleFilter}
+                onChange={(e) => setArticleFilter(e.target.value)}
+                placeholder="Ex: 12..."
+                className="w-full pl-9 pr-3 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all"
+              />
+              <Hash className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
             </div>
           </div>
 

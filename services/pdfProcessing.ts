@@ -6,6 +6,9 @@ import { generateWordReport, generateSearchReport } from './docxGenerator';
 
 export const processAndExport = async (files: CaseFile[], people: Person[]) => {
   const zip = new JSZip();
+  
+  // Array to hold the JSON data for export
+  const jsonExportData: any[] = [];
 
   // Generate Word Report
   try {
@@ -25,9 +28,14 @@ export const processAndExport = async (files: CaseFile[], people: Person[]) => {
 
     // Identify the "b" part of the name (Category Name)
     let categorySegment = "";
+    // Human readable name for JSON location
+    let locationName = ""; 
+
     if (caseFile.category === 'Autos Principais') {
       categorySegment = "Autos_Principais";
+      locationName = "Autos Principais";
     } else {
+      locationName = caseFile.categoryName || caseFile.category;
       categorySegment = caseFile.categoryName ? sanitizeFilename(caseFile.categoryName) : sanitizeFilename(caseFile.category);
     }
 
@@ -69,6 +77,21 @@ export const processAndExport = async (files: CaseFile[], people: Person[]) => {
       // Structure filename: a.b.c.d.e (e = facts)
       const filename = `${sanitizeFilename(extraction.manualNumber)}.${categorySegment}.${volumeSegment}.${sanitizeFilename(extraction.docType)}.${factsSegment}.pdf`;
 
+      // --- ADD TO JSON DATA ---
+      jsonExportData.push({
+        numero_manual: extraction.manualNumber,
+        artigos: extraction.articles || "",
+        tipo_prova: extraction.docType,
+        factos: extractionFacts,
+        intervenientes: extraction.people,
+        nome_ficheiro: filename,
+        localizacao: {
+          designacao: locationName,
+          volume: caseFile.volume,
+          paginas_originais: `${extraction.startPage}-${extraction.endPage}`
+        }
+      });
+
       // 1. Structure by Category (Function 1)
       const structPath = `01_Organizacao_Processual/${categorySegment}`;
       zip.folder(structPath)?.file(filename, pdfBytes);
@@ -84,6 +107,9 @@ export const processAndExport = async (files: CaseFile[], people: Person[]) => {
       }
     }
   }
+
+  // Add JSON file to ZIP
+  zip.file("dados_exportacao.json", JSON.stringify(jsonExportData, null, 2));
 
   // Generate zip
   const content = await zip.generateAsync({ type: "blob" });
