@@ -16,6 +16,8 @@ interface SidebarProps {
   onLoadProject: () => void;
   viewMode: ViewMode;
   onChangeViewMode: (mode: ViewMode) => void;
+  onDeleteFile: (fileId: string) => void;
+  onDeleteGroup: (category: DocCategory, name: string) => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ 
@@ -30,14 +32,16 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSaveProject,
   onLoadProject,
   viewMode,
-  onChangeViewMode
+  onChangeViewMode,
+  onDeleteFile,
+  onDeleteGroup
 }) => {
   
   const [expandedSection, setExpandedSection] = useState<DocCategory | null>('Autos Principais');
   const [editingCategory, setEditingCategory] = useState<{name: string, category: DocCategory} | null>(null);
   const [editNameValue, setEditNameValue] = useState('');
 
-  // Auto-expand the correct section when the current file changes
+  // Auto-expand the section of the current file
   useEffect(() => {
     if (currentFileId) {
       const currentFile = files.find(f => f.id === currentFileId);
@@ -92,24 +96,40 @@ const Sidebar: React.FC<SidebarProps> = ({
       const isMissing = !file.file; // Check if file link is broken (from saved project)
       const isActive = currentFileId === file.id && viewMode === 'organizer';
       return (
-        <div key={file.id} className="mb-2 pl-4">
-          <button 
-            onClick={() => onSelectFile(file.id)}
-            className={`w-full text-left p-2 rounded-lg flex items-start gap-2 transition-all text-sm ${isActive ? 'bg-blue-600 shadow-lg ring-1 ring-blue-400' : 'bg-slate-800 hover:bg-slate-700'}`}
-          >
-            <File className={`w-3.5 h-3.5 mt-0.5 opacity-70 ${isMissing ? 'text-red-400' : ''}`} />
-            <div className="flex-1 min-w-0">
-              <div className={`font-semibold truncate ${isMissing ? 'text-red-300' : ''}`}>
-                 Volume: {file.volume} {isMissing && '(Requer Ficheiro)'}
+        <div key={file.id} className="mb-2 pl-4 group/item">
+          <div className="flex items-center gap-1">
+            <button 
+              onClick={() => onSelectFile(file.id)}
+              className={`flex-1 text-left p-2 rounded-lg flex items-start gap-2 transition-all text-sm ${isActive ? 'bg-blue-600 shadow-lg ring-1 ring-blue-400' : 'bg-slate-800 hover:bg-slate-700'}`}
+            >
+              <File className={`w-3.5 h-3.5 mt-0.5 opacity-70 ${isMissing ? 'text-red-400' : ''}`} />
+              <div className="flex-1 min-w-0">
+                <div className={`font-semibold truncate ${isMissing ? 'text-red-300' : ''}`}>
+                  Volume: {file.volume} {isMissing && '(Requer Ficheiro)'}
+                </div>
+                <div className="text-[10px] text-slate-400 mt-0.5 truncate">{file.category === 'Autos Principais' ? 'Autos' : (file.categoryName || file.category)}</div>
               </div>
-              <div className="text-[10px] text-slate-400 mt-0.5 truncate">{file.category === 'Autos Principais' ? 'Autos' : (file.categoryName || file.category)}</div>
-            </div>
-            {file.extractions.length > 0 && (
-                <span className="bg-green-500 text-white text-[9px] font-bold px-1.5 rounded-full min-w-[18px] text-center">
-                  {file.extractions.length}
-                </span>
-            )}
-          </button>
+              {file.extractions.length > 0 && (
+                  <span className="bg-green-500 text-white text-[9px] font-bold px-1.5 rounded-full min-w-[18px] text-center">
+                    {file.extractions.length}
+                  </span>
+              )}
+            </button>
+            
+            {/* Delete File Button */}
+            <button 
+              type="button"
+              onClick={(e) => { 
+                e.stopPropagation(); 
+                e.preventDefault();
+                onDeleteFile(file.id); 
+              }}
+              className="p-2 text-slate-500 hover:text-white bg-transparent hover:bg-red-600 rounded transition-colors"
+              title="Eliminar este ficheiro"
+            >
+               <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
 
           {/* Extractions List for Active File */}
           {isActive && file.extractions.length > 0 && (
@@ -121,6 +141,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     <span className="text-slate-400">{ext.docType}</span>
                   </div>
                   <button 
+                    type="button"
                     onClick={(e) => { e.stopPropagation(); onDeleteExtraction(file.id, ext.id); }}
                     className="text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
                   >
@@ -218,7 +239,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           Object.keys(apensosGroups).length > 0 ? (
             <div className="space-y-3">
               {Object.entries(apensosGroups).sort((a,b) => a[0].localeCompare(b[0])).map(([name, groupFiles]) => (
-                <div key={name}>
+                <div key={name} className="group/groupheader">
                    <div className="flex items-center justify-between px-2 py-1 text-xs font-bold text-orange-200 uppercase tracking-wider group">
                       {editingCategory?.name === name && editingCategory.category === 'Apenso' ? (
                         <div className="flex items-center gap-1 w-full">
@@ -232,10 +253,26 @@ const Sidebar: React.FC<SidebarProps> = ({
                           <button onClick={() => setEditingCategory(null)}><X className="w-3 h-3 text-red-400"/></button>
                         </div>
                       ) : (
-                        <>
-                          <span className="truncate">{name}</span>
-                          <button onClick={() => handleStartEdit(name, 'Apenso')} className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-white"><Pencil className="w-3 h-3"/></button>
-                        </>
+                        <div className="flex items-center justify-between w-full">
+                           <div className="flex items-center gap-2 overflow-hidden">
+                             <span className="truncate">{name}</span>
+                             <button onClick={() => handleStartEdit(name, 'Apenso')} className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-white"><Pencil className="w-3 h-3"/></button>
+                           </div>
+                           
+                           {/* Delete Group Button */}
+                           <button 
+                             type="button"
+                             onClick={(e) => { 
+                               e.stopPropagation(); 
+                               e.preventDefault();
+                               onDeleteGroup('Apenso', name); 
+                             }}
+                             className="text-slate-500 hover:bg-red-600 hover:text-white p-1 rounded transition-colors"
+                             title="Eliminar este Apenso e todos os ficheiros"
+                           >
+                             <Trash2 className="w-3.5 h-3.5" />
+                           </button>
+                        </div>
                       )}
                    </div>
                    {renderFileList(groupFiles)}
@@ -254,7 +291,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           Object.keys(anexosGroups).length > 0 ? (
             <div className="space-y-3">
               {Object.entries(anexosGroups).sort((a,b) => a[0].localeCompare(b[0])).map(([name, groupFiles]) => (
-                <div key={name}>
+                <div key={name} className="group/groupheader">
                    <div className="flex items-center justify-between px-2 py-1 text-xs font-bold text-gray-300 uppercase tracking-wider group">
                       {editingCategory?.name === name && editingCategory.category === 'Anexo' ? (
                         <div className="flex items-center gap-1 w-full">
@@ -268,10 +305,26 @@ const Sidebar: React.FC<SidebarProps> = ({
                           <button onClick={() => setEditingCategory(null)}><X className="w-3 h-3 text-red-400"/></button>
                         </div>
                       ) : (
-                        <>
-                          <span className="truncate">{name}</span>
-                          <button onClick={() => handleStartEdit(name, 'Anexo')} className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-white"><Pencil className="w-3 h-3"/></button>
-                        </>
+                        <div className="flex items-center justify-between w-full">
+                           <div className="flex items-center gap-2 overflow-hidden">
+                              <span className="truncate">{name}</span>
+                              <button onClick={() => handleStartEdit(name, 'Anexo')} className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-white"><Pencil className="w-3 h-3"/></button>
+                           </div>
+                           
+                           {/* Delete Group Button */}
+                           <button 
+                             type="button"
+                             onClick={(e) => { 
+                                e.stopPropagation(); 
+                                e.preventDefault();
+                                onDeleteGroup('Anexo', name); 
+                             }}
+                             className="text-slate-500 hover:bg-red-600 hover:text-white p-1 rounded transition-colors"
+                             title="Eliminar este Anexo e todos os ficheiros"
+                           >
+                             <Trash2 className="w-3.5 h-3.5" />
+                           </button>
+                        </div>
                       )}
                    </div>
                    {renderFileList(groupFiles)}

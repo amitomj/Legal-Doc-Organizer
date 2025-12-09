@@ -6,6 +6,7 @@ import UploadModal from './components/UploadModal';
 import SearchDashboard from './components/SearchDashboard';
 import ExtractionModal from './components/ExtractionModal';
 import DeleteConfirmationModal, { DeleteItemType } from './components/DeleteConfirmationModal';
+import GenericConfirmModal from './components/GenericConfirmModal';
 import { CaseFile, DocCategory, ExtractionMeta, Extraction, Person, PersonType } from './types';
 import { processAndExport } from './services/pdfProcessing';
 import { DEFAULT_DOC_TYPES, DEFAULT_FACTS } from './constants';
@@ -18,6 +19,13 @@ interface DeleteRequest {
   type: 'person' | 'docType' | 'fact';
   id?: string; // Only for persons
   name: string; // The value to be deleted/replaced
+}
+
+interface GenericConfirmRequest {
+  title: string;
+  message: React.ReactNode;
+  onConfirm: () => void;
+  isDestructive: boolean;
 }
 
 const App: React.FC = () => {
@@ -36,9 +44,12 @@ const App: React.FC = () => {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   
-  // Delete Modal State
+  // Delete Modal State (For Items used in docs)
   const [deleteRequest, setDeleteRequest] = useState<DeleteRequest | null>(null);
   const [deleteUsageCount, setDeleteUsageCount] = useState(0);
+
+  // Generic Confirm Modal State (For Files/Groups)
+  const [confirmRequest, setConfirmRequest] = useState<GenericConfirmRequest | null>(null);
   
   // New State for Root Folder Management
   const [availableFiles, setAvailableFiles] = useState<File[]>([]);
@@ -171,6 +182,76 @@ const App: React.FC = () => {
      }));
   };
 
+  // --- DELETE FILE / GROUP LOGIC ---
+
+  const handleDeleteFile = (fileId: string) => {
+    const file = files.find(f => f.id === fileId);
+    if (!file) return;
+
+    const extractionCount = file.extractions.length;
+    
+    const message = (
+      <>
+        <p>Tem a certeza que deseja eliminar o ficheiro do <strong>Volume {file.volume}</strong>?</p>
+        {extractionCount > 0 && (
+          <p className="mt-2 text-red-600 font-bold">
+            ATENÇÃO: Isto eliminará também {extractionCount} documento(s) classificado(s) associado(s) a este ficheiro.
+          </p>
+        )}
+      </>
+    );
+
+    setConfirmRequest({
+      title: "Eliminar Ficheiro",
+      message: message,
+      isDestructive: true,
+      onConfirm: () => {
+        setFiles(prev => prev.filter(f => f.id !== fileId));
+        if (currentFileId === fileId) {
+          setCurrentFileId(null);
+        }
+      }
+    });
+  };
+
+  const handleDeleteGroup = (category: DocCategory, name: string) => {
+    if (category === 'Autos Principais') return; // Should not happen for Autos
+
+    const filesInGroup = files.filter(f => f.category === category && f.categoryName === name);
+    if (filesInGroup.length === 0) return;
+
+    const totalExtractions = filesInGroup.reduce((acc, f) => acc + f.extractions.length, 0);
+
+    const message = (
+      <>
+        <p>Tem a certeza que deseja eliminar todo o <strong>"{name}"</strong> ({category})?</p>
+        <p className="mt-2">Isto removerá <strong>{filesInGroup.length} ficheiro(s) PDF</strong> da lista.</p>
+        {totalExtractions > 0 && (
+          <p className="mt-2 text-red-600 font-bold">
+            ATENÇÃO: Isto eliminará também {totalExtractions} documento(s) classificado(s).
+          </p>
+        )}
+      </>
+    );
+
+    setConfirmRequest({
+      title: `Eliminar ${category}`,
+      message: message,
+      isDestructive: true,
+      onConfirm: () => {
+        setFiles(prev => prev.filter(f => !(f.category === category && f.categoryName === name)));
+        
+        // If the current file was part of this group, deselect it
+        if (currentFileId) {
+          const currentFile = files.find(f => f.id === currentFileId);
+          if (currentFile && currentFile.category === category && currentFile.categoryName === name) {
+            setCurrentFileId(null);
+          }
+        }
+      }
+    });
+  };
+
   const currentFile = files.find(f => f.id === currentFileId);
 
   // --- PEOPLE MANAGEMENT ---
@@ -250,9 +331,12 @@ const App: React.FC = () => {
       setDeleteRequest({ type: 'person', id, name: person.name });
       setDeleteUsageCount(count);
     } else {
-      if (window.confirm(`Tem a certeza que deseja eliminar o interveniente "${person.name}"?`)) {
-        setPeople(prev => prev.filter(p => p.id !== id));
-      }
+      setConfirmRequest({
+        title: "Eliminar Interveniente",
+        message: `Tem a certeza que deseja eliminar "${person.name}"?`,
+        isDestructive: true,
+        onConfirm: () => setPeople(prev => prev.filter(p => p.id !== id))
+      });
     }
   };
 
@@ -263,9 +347,12 @@ const App: React.FC = () => {
       setDeleteRequest({ type: 'docType', name: type });
       setDeleteUsageCount(count);
     } else {
-      if (window.confirm(`Tem a certeza que deseja eliminar o tipo "${type}"?`)) {
-        setDocTypes(prev => prev.filter(t => t !== type));
-      }
+      setConfirmRequest({
+        title: "Eliminar Tipo de Documento",
+        message: `Tem a certeza que deseja eliminar o tipo "${type}"?`,
+        isDestructive: true,
+        onConfirm: () => setDocTypes(prev => prev.filter(t => t !== type))
+      });
     }
   };
 
@@ -276,9 +363,12 @@ const App: React.FC = () => {
       setDeleteRequest({ type: 'fact', name: fact });
       setDeleteUsageCount(count);
     } else {
-      if (window.confirm(`Tem a certeza que deseja eliminar o facto "${fact}"?`)) {
-        setFacts(prev => prev.filter(f => f !== fact));
-      }
+      setConfirmRequest({
+        title: "Eliminar Facto",
+        message: `Tem a certeza que deseja eliminar o facto "${fact}"?`,
+        isDestructive: true,
+        onConfirm: () => setFacts(prev => prev.filter(f => f !== fact))
+      });
     }
   };
 
@@ -674,6 +764,8 @@ const App: React.FC = () => {
         onLoadProject={handleLoadProject}
         viewMode={viewMode}
         onChangeViewMode={setViewMode}
+        onDeleteFile={handleDeleteFile}
+        onDeleteGroup={handleDeleteGroup}
       />
       
       <main className="flex-1 relative h-full">
@@ -794,7 +886,7 @@ const App: React.FC = () => {
         initialData={initialEditingData}
       />
 
-      {/* NEW DELETE CONFIRMATION MODAL */}
+      {/* DELETE CONFIRMATION MODAL (FOR USAGE CONFLICTS) */}
       <DeleteConfirmationModal
         isOpen={!!deleteRequest}
         onClose={() => setDeleteRequest(null)}
@@ -804,6 +896,16 @@ const App: React.FC = () => {
         availableReplacements={availableReplacements}
         onConfirmDelete={executeDelete}
         onConfirmReplace={executeReplace}
+      />
+      
+      {/* GENERIC CONFIRMATION MODAL (FOR FILES/GROUPS) */}
+      <GenericConfirmModal 
+        isOpen={!!confirmRequest}
+        onClose={() => setConfirmRequest(null)}
+        title={confirmRequest?.title || ''}
+        message={confirmRequest?.message || ''}
+        onConfirm={confirmRequest?.onConfirm || (() => {})}
+        isDestructive={confirmRequest?.isDestructive}
       />
 
       <UploadModal 
