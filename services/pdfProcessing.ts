@@ -3,6 +3,7 @@ import JSZip from 'jszip';
 import { CaseFile, Extraction, Person, SearchResult } from '../types';
 import { sanitizeFilename } from '../constants';
 import { generateWordReport, generateSearchReport } from './docxGenerator';
+import { generateExcelReport } from './excelGenerator';
 
 export const processAndExport = async (files: CaseFile[], people: Person[]) => {
   const zip = new JSZip();
@@ -16,6 +17,14 @@ export const processAndExport = async (files: CaseFile[], people: Person[]) => {
     zip.file("00_Indice_Geral.docx", wordBlob);
   } catch (e) {
     console.error("Failed to generate Word report", e);
+  }
+
+  // Generate Excel Report
+  try {
+    const excelBlob = await generateExcelReport(files);
+    zip.file("00_Indice_Geral_Excel.xlsx", excelBlob);
+  } catch (e) {
+    console.error("Failed to generate Excel report", e);
   }
 
   for (const caseFile of files) {
@@ -100,10 +109,18 @@ export const processAndExport = async (files: CaseFile[], people: Person[]) => {
       const typePath = `02_Por_Tipo_Documental/${sanitizeFilename(extraction.docType)}`;
       zip.folder(typePath)?.file(filename, pdfBytes);
 
-      // 3. Structure by Fact (Function 3 - New)
+      // 3. Structure by Fact (Function 3)
       for (const fact of extractionFacts) {
         const factPath = `03_Por_Facto/${sanitizeFilename(fact)}`;
         zip.folder(factPath)?.file(filename, pdfBytes);
+      }
+
+      // 4. Structure by Person (Function 4 - New Request)
+      if (extraction.people && extraction.people.length > 0) {
+        for (const person of extraction.people) {
+          const personPath = `04_Intervenientes/${sanitizeFilename(person)}`;
+          zip.folder(personPath)?.file(filename, pdfBytes);
+        }
       }
     }
   }

@@ -4,8 +4,9 @@ import { ChevronLeft, ChevronRight, Flag, BookmarkPlus, FileWarning } from 'luci
 import { CaseFile, ExtractionMeta, Person, PersonType } from '../types';
 import ExtractionModal from './ExtractionModal';
 
-// Set worker to the mjs build to support module loading correctly
-pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@4.8.69/build/pdf.worker.min.mjs`;
+// Set worker to the matching version for react-pdf 7.7.3
+// Using 3.11.174
+pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
 
 interface PdfViewerProps {
   currentFile: CaseFile;
@@ -25,6 +26,7 @@ interface PdfViewerProps {
   onAddFact: (fact: string) => void;
   onBulkAddFacts: (facts: string[]) => void;
   onDeleteFact: (fact: string) => void;
+  onUpdateFact: (oldFact: string, newFact: string) => void;
   initialPage?: number | null;
   searchNavTrigger?: number; // Used to force navigation if page is same
 }
@@ -47,6 +49,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
   onAddFact,
   onBulkAddFacts,
   onDeleteFact,
+  onUpdateFact,
   initialPage,
   searchNavTrigger
 }) => {
@@ -309,6 +312,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
         onAddFact={onAddFact}
         onBulkAddFacts={onBulkAddFacts}
         onDeleteFact={onDeleteFact}
+        onUpdateFact={onUpdateFact}
       />
     </div>
   );

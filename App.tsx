@@ -469,6 +469,26 @@ const App: React.FC = () => {
     });
   };
 
+  const handleUpdateFact = (oldFact: string, newFact: string) => {
+    if (oldFact === newFact) return;
+    if (facts.includes(newFact)) {
+      alert("Já existe um facto com este nome.");
+      return;
+    }
+
+    // Update Global List
+    setFacts(prev => prev.map(f => f === oldFact ? newFact : f));
+
+    // Update ALL Usages in Files
+    setFiles(prev => prev.map(f => ({
+      ...f,
+      extractions: f.extractions.map(ext => ({
+        ...ext,
+        facts: (ext.facts || []).map(fact => fact === oldFact ? newFact : fact)
+      }))
+    })));
+  };
+
   // --- EXTRACTION LOGIC ---
 
   const handleAddExtraction = (start: number, end: number, meta: ExtractionMeta) => {
@@ -800,6 +820,7 @@ const App: React.FC = () => {
                   onAddFact={handleAddFact}
                   onBulkAddFacts={handleBulkAddFacts}
                   onDeleteFact={handleDeleteFact}
+                  onUpdateFact={handleUpdateFact}
                   initialPage={initialPageToJump}
                   searchNavTrigger={searchNavTrigger}
               />
@@ -883,6 +904,7 @@ const App: React.FC = () => {
         onAddFact={handleAddFact}
         onBulkAddFacts={handleBulkAddFacts}
         onDeleteFact={handleDeleteFact}
+        onUpdateFact={handleUpdateFact}
         initialData={initialEditingData}
       />
 

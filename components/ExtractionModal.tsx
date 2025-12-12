@@ -21,6 +21,7 @@ interface ExtractionModalProps {
   onAddFact: (fact: string) => void;
   onBulkAddFacts: (facts: string[]) => void;
   onDeleteFact: (fact: string) => void;
+  onUpdateFact: (oldFact: string, newFact: string) => void;
   initialData?: ExtractionMeta | null; // New prop for editing mode
 }
 
@@ -115,6 +116,7 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
   onAddFact,
   onBulkAddFacts,
   onDeleteFact,
+  onUpdateFact,
   initialData
 }) => {
   const [manualNumber, setManualNumber] = useState('');
@@ -132,12 +134,16 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
   const [bulkTypeInput, setBulkTypeInput] = useState('');
   
   // FACTS STATES
-  const [selectedFacts, setSelectedFacts] = useState<Set<string>>(new Set(['Prova geral']));
+  const [selectedFacts, setSelectedFacts] = useState<Set<string>>(new Set());
   const [isBulkImportingFacts, setIsBulkImportingFacts] = useState(false);
   const [bulkFactsInput, setBulkFactsInput] = useState('');
   const [newFactInput, setNewFactInput] = useState('');
   const [isManagingFacts, setIsManagingFacts] = useState(false);
   
+  // Fact Editing
+  const [editingFact, setEditingFact] = useState<string | null>(null);
+  const [editingFactValue, setEditingFactValue] = useState('');
+
   // Selection state
   const [selectedPeople, setSelectedPeople] = useState<Set<string>>(new Set());
 
@@ -168,53 +174,66 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
   const [position, setPosition] = useState<{x: number, y: number} | null>(null);
   const dragOffset = useRef<{x: number, y: number}>({ x: 0, y: 0 });
 
+  // Initialization Guard
+  // This ensures we only load initial data ONCE when the modal opens,
+  // preventing resets when parent state (like lists of people/facts) updates.
+  const hasInitialized = useRef(false);
+
   // Reset or Populate states when opening
   useEffect(() => {
     if (isOpen) {
-      setEditStartPage(pageRange.start);
-      setEditEndPage(pageRange.end);
+      // Only initialize if we haven't done so for this session
+      if (!hasInitialized.current) {
+          setEditStartPage(pageRange.start);
+          setEditEndPage(pageRange.end);
 
-      if (initialData) {
-        // Edit Mode: Pre-fill data
-        setManualNumber(initialData.manualNumber);
-        setArticles(initialData.articles || '');
-        
-        // Handle Doc Type
-        if (docTypes.includes(initialData.docType)) {
-          setDocType(initialData.docType);
-          setIsCustomType(false);
-        } else {
-          setDocType('Outro'); // Or whatever default
-          setIsCustomType(true);
-          setCustomType(initialData.docType);
-        }
+          if (initialData) {
+            // Edit Mode: Pre-fill data
+            setManualNumber(initialData.manualNumber);
+            setArticles(initialData.articles || '');
+            
+            // Handle Doc Type
+            if (docTypes.includes(initialData.docType)) {
+              setDocType(initialData.docType);
+              setIsCustomType(false);
+            } else {
+              setDocType('Outro'); // Or whatever default
+              setIsCustomType(true);
+              setCustomType(initialData.docType);
+            }
 
-        // Handle People
-        setSelectedPeople(new Set(initialData.selectedPeople));
-        
-        // Handle Facts
-        setSelectedFacts(new Set(initialData.selectedFacts));
-      
-      } else {
-        // Create Mode: Reset to defaults
-        setManualNumber('');
-        setArticles('');
-        setDocType(docTypes[0] || 'Outro');
-        setIsCustomType(false);
-        setCustomType('');
-        setSelectedPeople(new Set());
-        setSelectedFacts(new Set(['Prova geral']));
+            // Handle People
+            setSelectedPeople(new Set(initialData.selectedPeople));
+            
+            // Handle Facts
+            setSelectedFacts(new Set(initialData.selectedFacts));
+          
+          } else {
+            // Create Mode: Reset to defaults
+            setManualNumber('');
+            setArticles('');
+            setDocType(docTypes[0] || 'Outro');
+            setIsCustomType(false);
+            setCustomType('');
+            setSelectedPeople(new Set());
+            setSelectedFacts(new Set());
+          }
+          
+          hasInitialized.current = true;
       }
       
       // Don't reset position if already set
     } else {
-      // Reset when closed
+      // Reset flag when closed
+      hasInitialized.current = false;
+
+      // Reset UI states
       setIsPoppedOut(false);
       setManualNumber('');
       setArticles('');
       setPosition(null); 
     }
-  }, [isOpen, initialData, pageRange]);
+  }, [isOpen, initialData, pageRange.start, pageRange.end]); // Use primitives for pageRange to avoid ref equality issues
 
   // Sync DocType selection if the list changes (e.g., deletion)
   useEffect(() => {
@@ -264,9 +283,7 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
     if (manualNumber && finalType) {
       if (isCustomType) onAddDocType(customType); 
       
-      // If no facts selected, default to "Prova geral" if available
       let finalFacts = Array.from(selectedFacts);
-      if (finalFacts.length === 0) finalFacts = ['Prova geral'];
 
       // Validation
       if (editStartPage > editEndPage) {
@@ -358,6 +375,28 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
       }
       setEditingPersonId(null);
       setEditingName('');
+    }
+  };
+
+  const startEditingFact = (fact: string) => {
+    setEditingFact(fact);
+    setEditingFactValue(fact);
+  };
+
+  const saveEditingFact = () => {
+    if (editingFact && editingFactValue.trim()) {
+      onUpdateFact(editingFact, editingFactValue.trim());
+      
+      // Update local selection if this fact was selected
+      if (selectedFacts.has(editingFact)) {
+        const next = new Set(selectedFacts);
+        next.delete(editingFact);
+        next.add(editingFactValue.trim());
+        setSelectedFacts(next);
+      }
+
+      setEditingFact(null);
+      setEditingFactValue('');
     }
   };
 
@@ -628,7 +667,7 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
             {/* Manual Number */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">
-                Numeração Manual
+                Página
               </label>
               <input 
                 type="text" 
@@ -781,16 +820,38 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
                       <div className="flex flex-wrap gap-2 max-h-[100px] overflow-y-auto p-1">
                           {facts.map(fact => (
                               isManagingFacts ? (
-                                <div key={fact} className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs border bg-red-50 border-red-200 text-red-700">
-                                   <span>{fact}</span>
-                                   <button 
-                                     type="button"
-                                     onClick={() => onDeleteFact(fact)}
-                                     className="p-0.5 hover:bg-red-200 rounded-full"
-                                   >
-                                     <CloseIcon className="w-3 h-3" />
-                                   </button>
-                                </div>
+                                // Editing Mode for Fact
+                                editingFact === fact ? (
+                                  <div key={fact} className="flex items-center gap-1 bg-white border border-indigo-300 rounded px-1">
+                                     <input 
+                                        type="text" 
+                                        autoFocus
+                                        value={editingFactValue} 
+                                        onChange={(e) => setEditingFactValue(e.target.value)}
+                                        className="text-xs w-20 outline-none py-1"
+                                     />
+                                     <button onClick={saveEditingFact} type="button" className="text-green-600 hover:bg-green-100 rounded p-0.5"><Check className="w-3 h-3"/></button>
+                                     <button onClick={() => setEditingFact(null)} type="button" className="text-gray-400 hover:bg-gray-100 rounded p-0.5"><CloseIcon className="w-3 h-3"/></button>
+                                  </div>
+                                ) : (
+                                  <div key={fact} className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs border bg-white border-indigo-200 text-indigo-700">
+                                     <span>{fact}</span>
+                                     <button 
+                                       type="button"
+                                       onClick={() => startEditingFact(fact)}
+                                       className="p-0.5 hover:bg-indigo-100 rounded-full text-indigo-400 hover:text-indigo-600"
+                                     >
+                                       <Pencil className="w-3 h-3" />
+                                     </button>
+                                     <button 
+                                       type="button"
+                                       onClick={() => onDeleteFact(fact)}
+                                       className="p-0.5 hover:bg-red-100 rounded-full text-gray-400 hover:text-red-500"
+                                     >
+                                       <CloseIcon className="w-3 h-3" />
+                                     </button>
+                                  </div>
+                                )
                               ) : (
                                 <label key={fact} className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs border cursor-pointer select-none transition-colors ${selectedFacts.has(fact) ? 'bg-indigo-100 border-indigo-300 text-indigo-800 font-medium' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
                                     <input 
@@ -870,8 +931,8 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
   if (isPoppedOut) {
     return (
       <PopoutWindow 
-        title={`Classificar Doc. (Páginas ${pageRange.start}-${pageRange.end})`} 
-        onClose={onClose}
+        title={initialData ? 'Editar Classificação' : 'Classificar Documento'} 
+        onClose={onClose} 
         onDock={() => setIsPoppedOut(false)}
       >
         {ModalContent}
@@ -879,19 +940,14 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
     );
   }
 
-  // --- STANDARD DOCKED RENDER ---
-  const style: React.CSSProperties = position 
-    ? { left: position.x, top: position.y } 
-    : { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' };
-
   return (
-    <div 
-      ref={modalRef}
-      style={style}
-      className="fixed z-[100] w-full max-w-4xl bg-transparent pointer-events-auto max-h-[90vh] flex flex-col"
-    >
-      <div className="bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col h-full border border-gray-200">
-         {ModalContent}
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div 
+        ref={modalRef}
+        style={position ? { position: 'absolute', left: position.x, top: position.y, margin: 0 } : {}}
+        className={`bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh] ${!position ? 'animate-in fade-in zoom-in duration-200' : ''}`}
+      >
+        {ModalContent}
       </div>
     </div>
   );

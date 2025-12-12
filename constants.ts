@@ -28,6 +28,7 @@ export const DEFAULT_DOC_TYPES = [
   "Imagens",
   "Informação Fiscal",
   "Informação Segurança Social",
+  "Procurações",
   "Reconhecimento de objetos",
   "Reconhecimento de pessoas",
   "TIR",

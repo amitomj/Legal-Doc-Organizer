@@ -1,8 +1,14 @@
-import { Document, Packer, Paragraph, Table, TableCell, TableRow, WidthType, HeadingLevel, AlignmentType, TextRun } from "docx";
+import { Document, Packer, Paragraph, Table, TableCell, TableRow, WidthType, HeadingLevel, AlignmentType, TextRun, PageOrientation, ShadingType, BorderStyle } from "docx";
 import { CaseFile, SearchResult } from "../types";
 import { sanitizeFilename } from "../constants";
 
 const HEADING_COLOR = "2E74B5";
+
+// Table Styles matching the image
+const TABLE_HEADER_BG = "4F81BD"; // Medium Blue
+const TABLE_HEADER_TEXT = "FFFFFF"; // White
+const TABLE_ROW_EVEN_BG = "D0D8E8"; // Light Blue/Gray
+const TABLE_ROW_ODD_BG = "FFFFFF"; // White
 
 // Helper to format articles with hash prefix
 const formatArticlesVal = (val: string | undefined): string => {
@@ -12,6 +18,34 @@ const formatArticlesVal = (val: string | undefined): string => {
     .filter(s => s.length > 0)
     .map(s => s.startsWith('#') ? s : `#${s}`)
     .join(', ');
+};
+
+// Helper to create a styled cell
+const createCell = (content: Paragraph | Paragraph[], widthPercent: number, isHeader: boolean = false, shadingColor: string = "FFFFFF") => {
+  return new TableCell({
+    children: Array.isArray(content) ? content : [content],
+    width: { size: widthPercent, type: WidthType.PERCENTAGE },
+    shading: {
+      fill: isHeader ? TABLE_HEADER_BG : shadingColor,
+      type: ShadingType.CLEAR,
+      color: "auto",
+    },
+    verticalAlign: "center",
+    margins: {
+      top: 100,
+      bottom: 100,
+      left: 100,
+      right: 100,
+    }
+  });
+};
+
+// Helper for header text
+const headerText = (text: string) => {
+  return new Paragraph({
+    children: [new TextRun({ text, bold: true, color: TABLE_HEADER_TEXT })],
+    alignment: AlignmentType.CENTER
+  });
 };
 
 export const generateWordReport = async (files: CaseFile[]): Promise<Blob> => {
@@ -45,18 +79,20 @@ export const generateWordReport = async (files: CaseFile[]): Promise<Blob> => {
     const rows: TableRow[] = [];
 
     // Header Row
+    // Requested Order: Artigos, Factos, Intervenientes, Tipo de prova, Página, Nome do ficheiro pdf
     rows.push(new TableRow({
       tableHeader: true,
       children: [
-        new TableCell({ children: [new Paragraph({ text: "Num.", bold: true })], width: { size: 8, type: WidthType.PERCENTAGE }, shading: { fill: "E0E0E0" } }),
-        new TableCell({ children: [new Paragraph({ text: "Artigos", bold: true })], width: { size: 10, type: WidthType.PERCENTAGE }, shading: { fill: "E0E0E0" } }), 
-        new TableCell({ children: [new Paragraph({ text: "Volume", bold: true })], width: { size: 8, type: WidthType.PERCENTAGE }, shading: { fill: "E0E0E0" } }),
-        new TableCell({ children: [new Paragraph({ text: "Tipo de Prova", bold: true })], width: { size: 17, type: WidthType.PERCENTAGE }, shading: { fill: "E0E0E0" } }),
-        new TableCell({ children: [new Paragraph({ text: "Factos", bold: true })], width: { size: 17, type: WidthType.PERCENTAGE }, shading: { fill: "E0E0E0" } }),
-        new TableCell({ children: [new Paragraph({ text: "Intervenientes", bold: true })], width: { size: 20, type: WidthType.PERCENTAGE }, shading: { fill: "E0E0E0" } }),
-        new TableCell({ children: [new Paragraph({ text: "Nome do Ficheiro PDF", bold: true })], width: { size: 20, type: WidthType.PERCENTAGE }, shading: { fill: "E0E0E0" } }),
+        createCell(headerText("Artigos"), 10, true),
+        createCell(headerText("Factos"), 20, true),
+        createCell(headerText("Intervenientes"), 20, true),
+        createCell(headerText("Tipo de Prova"), 15, true),
+        createCell(headerText("Página"), 10, true),
+        createCell(headerText("Nome do Ficheiro PDF"), 25, true),
       ]
     }));
+
+    let rowIndex = 0;
 
     sortedFiles.forEach(file => {
       // Re-derive category segment for filename generation
@@ -83,31 +119,41 @@ export const generateWordReport = async (files: CaseFile[]): Promise<Blob> => {
         // Create a row for EACH fact
         factsDisplay.forEach(fact => {
           // Re-generate people paragraphs for each row instance to ensure clean document structure
-          // ADDED COMMA HERE
           const peopleParagraphs = displayNames.map(name => new Paragraph({ text: `${name},`, spacing: { after: 60 } }));
+          
+          const rowColor = rowIndex % 2 === 0 ? TABLE_ROW_ODD_BG : TABLE_ROW_EVEN_BG;
 
           rows.push(new TableRow({
             children: [
-              new TableCell({ children: [new Paragraph(ext.manualNumber)] }),
-              new TableCell({ children: [new Paragraph(formatArticlesVal(ext.articles))] }), // Formatted with #
-              new TableCell({ children: [new Paragraph(file.volume)] }),
-              new TableCell({ children: [new Paragraph(ext.docType)] }),
-              new TableCell({ children: [new Paragraph(fact)] }), // Single Fact per Row
-              new TableCell({ children: peopleParagraphs.length > 0 ? peopleParagraphs : [new Paragraph("-")] }),
-              new TableCell({ children: [new Paragraph({ text: filename, style: "Code" })] }),
+              createCell(new Paragraph({ text: formatArticlesVal(ext.articles), alignment: AlignmentType.CENTER }), 10, false, rowColor),
+              createCell(new Paragraph(fact), 20, false, rowColor),
+              createCell(peopleParagraphs.length > 0 ? peopleParagraphs : [new Paragraph("-")], 20, false, rowColor),
+              createCell(new Paragraph(ext.docType), 15, false, rowColor),
+              createCell(new Paragraph({ text: ext.manualNumber, alignment: AlignmentType.CENTER }), 10, false, rowColor),
+              createCell(new Paragraph({ text: filename, style: "Code" }), 25, false, rowColor),
             ]
           }));
+          
+          rowIndex++;
         });
       });
     });
 
     if (rows.length === 1) {
-        return [new Paragraph({ text: "Sem documentos marcados.", italic: true, spacing: { after: 200 } })];
+        return [new Paragraph({ children: [new TextRun({ text: "Sem documentos marcados.", italics: true })], spacing: { after: 200 } })];
     }
 
     return [new Table({
       rows: rows,
       width: { size: 100, type: WidthType.PERCENTAGE },
+      borders: {
+        top: { style: BorderStyle.SINGLE, size: 1, color: "888888" },
+        bottom: { style: BorderStyle.SINGLE, size: 1, color: "888888" },
+        left: { style: BorderStyle.SINGLE, size: 1, color: "888888" },
+        right: { style: BorderStyle.SINGLE, size: 1, color: "888888" },
+        insideHorizontal: { style: BorderStyle.SINGLE, size: 1, color: "888888" },
+        insideVertical: { style: BorderStyle.SINGLE, size: 1, color: "888888" },
+      }
     }), new Paragraph({ text: "", spacing: { after: 400 } })]; 
   };
 
@@ -122,13 +168,20 @@ export const generateWordReport = async (files: CaseFile[]): Promise<Blob> => {
 
   // 1. Autos Principais
   if (autos.length > 0) {
-    docChildren.push(new Paragraph({ text: "Autos Principais", heading: HeadingLevel.HEADING_1, color: HEADING_COLOR }));
+    docChildren.push(new Paragraph({ 
+      heading: HeadingLevel.HEADING_1, 
+      children: [new TextRun({ text: "Autos Principais", color: HEADING_COLOR })]
+    }));
     docChildren.push(...createTableForFiles(autos));
   }
 
   // 2. Apensos
   if (apensosMap.size > 0) {
-    docChildren.push(new Paragraph({ text: "Apensos", heading: HeadingLevel.HEADING_1, color: HEADING_COLOR, spacing: { before: 200 } }));
+    docChildren.push(new Paragraph({ 
+      heading: HeadingLevel.HEADING_1, 
+      children: [new TextRun({ text: "Apensos", color: HEADING_COLOR })],
+      spacing: { before: 200 } 
+    }));
     const sortedApensos = Array.from(apensosMap.keys()).sort();
     sortedApensos.forEach(name => {
       docChildren.push(new Paragraph({ text: name, heading: HeadingLevel.HEADING_2 }));
@@ -138,7 +191,11 @@ export const generateWordReport = async (files: CaseFile[]): Promise<Blob> => {
 
   // 3. Anexos
   if (anexosMap.size > 0) {
-    docChildren.push(new Paragraph({ text: "Anexos", heading: HeadingLevel.HEADING_1, color: HEADING_COLOR, spacing: { before: 200 } }));
+    docChildren.push(new Paragraph({ 
+      heading: HeadingLevel.HEADING_1, 
+      children: [new TextRun({ text: "Anexos", color: HEADING_COLOR })],
+      spacing: { before: 200 } 
+    }));
     const sortedAnexos = Array.from(anexosMap.keys()).sort();
     sortedAnexos.forEach(name => {
       docChildren.push(new Paragraph({ text: name, heading: HeadingLevel.HEADING_2 }));
@@ -148,7 +205,13 @@ export const generateWordReport = async (files: CaseFile[]): Promise<Blob> => {
 
   const doc = new Document({
     sections: [{
-      properties: {},
+      properties: {
+        page: {
+          size: {
+            orientation: PageOrientation.LANDSCAPE,
+          },
+        },
+      },
       children: docChildren
     }]
   });
@@ -164,43 +227,53 @@ export const generateSearchReport = async (results: SearchResult[]): Promise<Blo
   rows.push(new TableRow({
     tableHeader: true,
     children: [
-      new TableCell({ children: [new Paragraph({ text: "N.º", bold: true })], width: { size: 10, type: WidthType.PERCENTAGE }, shading: { fill: "E0E0E0" } }),
-      new TableCell({ children: [new Paragraph({ text: "Artigos", bold: true })], width: { size: 10, type: WidthType.PERCENTAGE }, shading: { fill: "E0E0E0" } }), 
-      new TableCell({ children: [new Paragraph({ text: "Tipo", bold: true })], width: { size: 15, type: WidthType.PERCENTAGE }, shading: { fill: "E0E0E0" } }),
-      new TableCell({ children: [new Paragraph({ text: "Localização", bold: true })], width: { size: 20, type: WidthType.PERCENTAGE }, shading: { fill: "E0E0E0" } }),
-      new TableCell({ children: [new Paragraph({ text: "Factos", bold: true })], width: { size: 20, type: WidthType.PERCENTAGE }, shading: { fill: "E0E0E0" } }),
-      new TableCell({ children: [new Paragraph({ text: "Intervenientes", bold: true })], width: { size: 25, type: WidthType.PERCENTAGE }, shading: { fill: "E0E0E0" } }),
+      createCell(headerText("Artigos"), 10, true),
+      createCell(headerText("Factos"), 20, true),
+      createCell(headerText("Intervenientes"), 20, true),
+      createCell(headerText("Tipo de Prova"), 15, true),
+      createCell(headerText("Página"), 10, true),
+      createCell(headerText("Nome do Ficheiro PDF"), 25, true),
     ]
   }));
 
-  results.forEach(res => {
-    // Location Text
-    const locationText = res.category === 'Autos Principais' 
-      ? `Autos - Vol. ${res.volume} (pág. ${res.startPage}-${res.endPage})`
-      : `${res.categoryName} - Vol. ${res.volume} (pág. ${res.startPage}-${res.endPage})`;
+  results.forEach((res, index) => {
+    // Reconstruct filename for search report
+    let categorySegment = "";
+    if (res.category === 'Autos Principais') {
+      categorySegment = "Autos_Principais";
+    } else {
+      categorySegment = res.categoryName ? sanitizeFilename(res.categoryName) : sanitizeFilename(res.category);
+    }
+    const volumeSegment = sanitizeFilename(res.volume);
+    const factsSegment = sanitizeFilename(res.facts.join('_'));
+    const filename = `${sanitizeFilename(res.manualNumber)}.${categorySegment}.${volumeSegment}.${sanitizeFilename(res.docType)}.${factsSegment}.pdf`;
 
-    // Facts
     const factsParagraphs = res.facts.map(f => new Paragraph({ text: f, spacing: { after: 40 } }));
-
-    // People
-    // ADDED COMMA HERE
     const peopleParagraphs = res.people.sort().map(p => new Paragraph({ text: `${p},`, spacing: { after: 40 } }));
+
+    const rowColor = index % 2 === 0 ? TABLE_ROW_ODD_BG : TABLE_ROW_EVEN_BG;
 
     rows.push(new TableRow({
       children: [
-        new TableCell({ children: [new Paragraph(res.manualNumber)] }),
-        new TableCell({ children: [new Paragraph(formatArticlesVal(res.articles))] }), // Formatted with #
-        new TableCell({ children: [new Paragraph(res.docType)] }),
-        new TableCell({ children: [new Paragraph(locationText)] }),
-        new TableCell({ children: factsParagraphs }),
-        new TableCell({ children: peopleParagraphs.length > 0 ? peopleParagraphs : [new Paragraph("-")] }),
+        createCell(new Paragraph({ text: formatArticlesVal(res.articles), alignment: AlignmentType.CENTER }), 10, false, rowColor),
+        createCell(factsParagraphs, 20, false, rowColor),
+        createCell(peopleParagraphs.length > 0 ? peopleParagraphs : [new Paragraph("-")], 20, false, rowColor),
+        createCell(new Paragraph(res.docType), 15, false, rowColor),
+        createCell(new Paragraph({ text: res.manualNumber, alignment: AlignmentType.CENTER }), 10, false, rowColor),
+        createCell(new Paragraph({ text: filename, style: "Code" }), 25, false, rowColor),
       ]
     }));
   });
 
   const doc = new Document({
     sections: [{
-      properties: {},
+      properties: {
+        page: {
+          size: {
+            orientation: PageOrientation.LANDSCAPE,
+          },
+        },
+      },
       children: [
         new Paragraph({
           text: "Relatório de Pesquisa - Organizador de Autos",
@@ -211,6 +284,14 @@ export const generateSearchReport = async (results: SearchResult[]): Promise<Blo
         new Table({
           rows: rows,
           width: { size: 100, type: WidthType.PERCENTAGE },
+          borders: {
+            top: { style: BorderStyle.SINGLE, size: 1, color: "888888" },
+            bottom: { style: BorderStyle.SINGLE, size: 1, color: "888888" },
+            left: { style: BorderStyle.SINGLE, size: 1, color: "888888" },
+            right: { style: BorderStyle.SINGLE, size: 1, color: "888888" },
+            insideHorizontal: { style: BorderStyle.SINGLE, size: 1, color: "888888" },
+            insideVertical: { style: BorderStyle.SINGLE, size: 1, color: "888888" },
+          }
         })
       ]
     }]
