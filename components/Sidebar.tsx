@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { File, Folder, Database, Trash2, Download, PlusCircle, ChevronDown, ChevronRight, Pencil, Check, X, Archive, LayoutList, Search } from 'lucide-react';
+import { File, Folder, Database, Trash2, Download, PlusCircle, ChevronDown, ChevronRight, Pencil, Check, X, Archive, LayoutList, Search, Eye } from 'lucide-react';
 import { CaseFile, DocCategory } from '../types';
 import { ViewMode } from '../App';
 
@@ -11,6 +11,8 @@ interface SidebarProps {
   onExport: () => void;
   isExporting: boolean;
   onDeleteExtraction: (fileId: string, extractionId: string) => void;
+  onEditExtraction: (fileId: string, extractionId: string) => void;
+  onViewExtraction: (fileId: string, extractionId: string) => void;
   onUpdateCategoryName: (oldName: string, newName: string, category: DocCategory) => void;
   onSaveProject: () => void;
   onLoadProject: () => void;
@@ -28,6 +30,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   onExport,
   isExporting,
   onDeleteExtraction,
+  onEditExtraction,
+  onViewExtraction,
   onUpdateCategoryName,
   onSaveProject,
   onLoadProject,
@@ -135,18 +139,39 @@ const Sidebar: React.FC<SidebarProps> = ({
           {isActive && file.extractions.length > 0 && (
             <div className="ml-3 mt-1 space-y-1 border-l border-slate-700 pl-2">
               {file.extractions.map(ext => (
-                <div key={ext.id} className="flex justify-between items-center group text-[11px] text-slate-300 p-1 hover:bg-slate-800 rounded">
+                <div key={ext.id} className="flex justify-between items-center text-[11px] text-slate-300 p-1 hover:bg-slate-800 rounded">
                   <div className="flex-1 truncate cursor-default">
                     <span className="font-mono text-orange-300 mr-1">#{ext.manualNumber}</span>
                     <span className="text-slate-400">{ext.docType}</span>
                   </div>
-                  <button 
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); onDeleteExtraction(file.id, ext.id); }}
-                    className="text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </button>
+                  
+                  {/* Action Icons */}
+                  <div className="flex items-center gap-1">
+                     <button 
+                       type="button"
+                       title="Ver Documento"
+                       onClick={(e) => { e.stopPropagation(); onViewExtraction(file.id, ext.id); }}
+                       className="text-slate-500 hover:text-blue-400 p-0.5 rounded"
+                     >
+                       <Eye className="w-3 h-3" />
+                     </button>
+                     <button 
+                       type="button"
+                       title="Editar Documento"
+                       onClick={(e) => { e.stopPropagation(); onEditExtraction(file.id, ext.id); }}
+                       className="text-slate-500 hover:text-yellow-400 p-0.5 rounded"
+                     >
+                       <Pencil className="w-3 h-3" />
+                     </button>
+                     <button 
+                       type="button"
+                       title="Eliminar Documento"
+                       onClick={(e) => { e.stopPropagation(); onDeleteExtraction(file.id, ext.id); }}
+                       className="text-slate-500 hover:text-red-400 p-0.5 rounded"
+                     >
+                       <Trash2 className="w-3 h-3" />
+                     </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -208,13 +233,19 @@ const Sidebar: React.FC<SidebarProps> = ({
             <LayoutList className="w-4 h-4" />
             Organizar
           </button>
-          <button
-            onClick={() => onChangeViewMode('search')}
-            className={`flex items-center justify-center gap-2 py-2 text-xs font-bold uppercase rounded-t-lg transition-colors ${viewMode === 'search' ? 'bg-slate-800 text-blue-400 border-b-2 border-blue-500' : 'text-slate-500 hover:bg-slate-900'}`}
+          
+          {/* Using anchor tag for Search to allow "Right Click -> Open in New Tab" */}
+          <a
+            href="?view=search"
+            onClick={(e) => { 
+                e.preventDefault(); 
+                onChangeViewMode('search'); 
+            }}
+            className={`flex items-center justify-center gap-2 py-2 text-xs font-bold uppercase rounded-t-lg transition-colors cursor-pointer ${viewMode === 'search' ? 'bg-slate-800 text-blue-400 border-b-2 border-blue-500' : 'text-slate-500 hover:bg-slate-900'}`}
           >
             <Search className="w-4 h-4" />
             Pesquisar
-          </button>
+          </a>
         </div>
       </div>
 

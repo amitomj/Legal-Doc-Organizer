@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
-import { ChevronLeft, ChevronRight, Flag, BookmarkPlus, FileWarning } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Flag, BookmarkPlus, FileWarning, RotateCw } from 'lucide-react';
 import { CaseFile, ExtractionMeta, Person, PersonType } from '../types';
 import ExtractionModal from './ExtractionModal';
 
@@ -59,6 +59,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
   const [startPage, setStartPage] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [scale, setScale] = useState(1.0);
+  const [rotation, setRotation] = useState(0);
 
   // Reset state when file changes or initialPage updates
   useEffect(() => {
@@ -70,6 +71,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
     setInputPage(String(targetPage));
     setStartPage(null);
     setNumPages(0);
+    setRotation(0);
   }, [currentFile.id, initialPage, searchNavTrigger]);
 
   function onDocumentLoadSuccess({ numPages }: { numPages: number }) {
@@ -88,6 +90,10 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
       setInputPage(String(clamped));
       return clamped;
     });
+  };
+
+  const handleRotate = () => {
+    setRotation(prev => (prev + 90) % 360);
   };
 
   // Handle direct input change
@@ -216,6 +222,17 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+           {/* Rotate Button */}
+           <button
+             onClick={handleRotate}
+             title="Rodar Página"
+             className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+           >
+             <RotateCw className="w-5 h-5" />
+           </button>
+
+           <div className="h-6 w-px bg-gray-300 mx-2"></div>
+
            {/* Action Buttons */}
            {!startPage ? (
              <button 
@@ -272,6 +289,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
             <Page 
               pageNumber={pageNumber} 
               scale={scale} 
+              rotate={rotation}
               renderTextLayer={false} 
               renderAnnotationLayer={false}
               className="bg-white"

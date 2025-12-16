@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import Sidebar from './components/Sidebar';
 import PdfViewer from './components/PdfViewer';
@@ -8,7 +8,7 @@ import ExtractionModal from './components/ExtractionModal';
 import DeleteConfirmationModal, { DeleteItemType } from './components/DeleteConfirmationModal';
 import GenericConfirmModal from './components/GenericConfirmModal';
 import { CaseFile, DocCategory, ExtractionMeta, Extraction, Person, PersonType } from './types';
-import { processAndExport } from './services/pdfProcessing';
+import { processAndExport, generatePartialPdf } from './services/pdfProcessing';
 import { DEFAULT_DOC_TYPES, DEFAULT_FACTS } from './constants';
 import { FolderSearch, FileSearch, AlertCircle, FolderOpen } from 'lucide-react';
 
@@ -29,7 +29,11 @@ interface GenericConfirmRequest {
 }
 
 const App: React.FC = () => {
-  const [viewMode, setViewMode] = useState<ViewMode>('organizer');
+  // Initialize ViewMode based on URL parameter
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('view') === 'search' ? 'search' : 'organizer';
+  });
   
   const [files, setFiles] = useState<CaseFile[]>([]);
   const [currentFileId, setCurrentFileId] = useState<string | null>(null);
@@ -522,6 +526,23 @@ const App: React.FC = () => {
     }));
   };
 
+  const handleViewExtraction = async (fileId: string, extractionId: string) => {
+    const file = files.find(f => f.id === fileId);
+    if (!file || !file.file) {
+      alert("Ficheiro não disponível");
+      return;
+    }
+    const ext = file.extractions.find(e => e.id === extractionId);
+    if (!ext) return;
+
+    try {
+      const blobUrl = await generatePartialPdf(file.file, ext.startPage, ext.endPage);
+      window.open(blobUrl, '_blank');
+    } catch (e) {
+      alert("Erro ao abrir o documento.");
+    }
+  };
+
   // --- SEARCH EDIT LOGIC ---
 
   const handleSearchEdit = (fileId: string, extractionId: string) => {
@@ -779,6 +800,8 @@ const App: React.FC = () => {
         onExport={handleExport}
         isExporting={isExporting}
         onDeleteExtraction={handleDeleteExtraction}
+        onEditExtraction={handleSearchEdit}
+        onViewExtraction={handleViewExtraction}
         onUpdateCategoryName={handleUpdateCategoryName}
         onSaveProject={handleSaveProject}
         onLoadProject={handleLoadProject}
