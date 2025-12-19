@@ -45,6 +45,10 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [editingCategory, setEditingCategory] = useState<{name: string, category: DocCategory} | null>(null);
   const [editNameValue, setEditNameValue] = useState('');
 
+  // Filter States
+  const [apensoFilter, setApensoFilter] = useState('');
+  const [anexoFilter, setAnexoFilter] = useState('');
+
   // Auto-expand the section of the current file
   useEffect(() => {
     if (currentFileId) {
@@ -75,6 +79,16 @@ const Sidebar: React.FC<SidebarProps> = ({
   const apensosGroups = groupFiles('Apenso');
   const anexosGroups = groupFiles('Anexo');
 
+  // Prepare Filtered Lists
+  const getFilteredGroups = (groups: {[key: string]: CaseFile[]}, filter: string) => {
+    return Object.entries(groups)
+      .sort((a,b) => a[0].localeCompare(b[0]))
+      .filter(([name]) => name.toLowerCase().includes(filter.toLowerCase()));
+  };
+
+  const filteredApensos = getFilteredGroups(apensosGroups, apensoFilter);
+  const filteredAnexos = getFilteredGroups(anexosGroups, anexoFilter);
+
   // Natural Sort for Volumes (1, 2, 10 instead of 1, 10, 2)
   const sortFilesByVolume = (fileList: CaseFile[]) => {
     return [...fileList].sort((a, b) => {
@@ -93,6 +107,29 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
     setEditingCategory(null);
   };
+
+  const renderFilterInput = (value: string, setValue: (v: string) => void, placeholder: string) => (
+    <div className="px-2 pb-2 pt-1 sticky top-0 bg-slate-900/95 z-10">
+      <div className="relative group">
+        <Search className="absolute left-2.5 top-2 w-3.5 h-3.5 text-slate-500 group-focus-within:text-blue-400" />
+        <input 
+          type="text"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder={placeholder}
+          className="w-full bg-slate-950 border border-slate-700 rounded-lg py-1.5 pl-8 pr-7 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+        />
+        {value && (
+          <button 
+            onClick={() => setValue('')}
+            className="absolute right-2 top-2 text-slate-500 hover:text-white"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
 
   const renderFileList = (fileList: CaseFile[]) => {
     const sorted = sortFilesByVolume(fileList);
@@ -269,46 +306,55 @@ const Sidebar: React.FC<SidebarProps> = ({
           Object.keys(apensosGroups).length,
           Object.keys(apensosGroups).length > 0 ? (
             <div className="space-y-3">
-              {Object.entries(apensosGroups).sort((a,b) => a[0].localeCompare(b[0])).map(([name, groupFiles]) => (
-                <div key={name} className="group/groupheader">
-                   <div className="flex items-center justify-between px-2 py-1 text-xs font-bold text-orange-200 uppercase tracking-wider group">
-                      {editingCategory?.name === name && editingCategory.category === 'Apenso' ? (
-                        <div className="flex items-center gap-1 w-full">
-                          <input 
-                            value={editNameValue} 
-                            onChange={(e) => setEditNameValue(e.target.value)}
-                            className="w-full bg-slate-800 border border-slate-600 rounded px-1 text-white"
-                            autoFocus
-                          />
-                          <button onClick={handleSaveEdit}><Check className="w-3 h-3 text-green-400"/></button>
-                          <button onClick={() => setEditingCategory(null)}><X className="w-3 h-3 text-red-400"/></button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-between w-full">
-                           <div className="flex items-center gap-2 overflow-hidden">
-                             <span className="truncate">{name}</span>
-                             <button onClick={() => handleStartEdit(name, 'Apenso')} className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-white"><Pencil className="w-3 h-3"/></button>
-                           </div>
-                           
-                           {/* Delete Group Button */}
-                           <button 
-                             type="button"
-                             onClick={(e) => { 
-                               e.stopPropagation(); 
-                               e.preventDefault();
-                               onDeleteGroup('Apenso', name); 
-                             }}
-                             className="text-slate-500 hover:bg-red-600 hover:text-white p-1 rounded transition-colors"
-                             title="Eliminar este Apenso e todos os ficheiros"
-                           >
-                             <Trash2 className="w-3.5 h-3.5" />
-                           </button>
-                        </div>
-                      )}
-                   </div>
-                   {renderFileList(groupFiles)}
+              {/* Filter Input */}
+              {renderFilterInput(apensoFilter, setApensoFilter, "Filtrar Apensos...")}
+              
+              {filteredApensos.length > 0 ? (
+                filteredApensos.map(([name, groupFiles]) => (
+                  <div key={name} className="group/groupheader">
+                    <div className="flex items-center justify-between px-2 py-1 text-xs font-bold text-orange-200 uppercase tracking-wider group">
+                        {editingCategory?.name === name && editingCategory.category === 'Apenso' ? (
+                          <div className="flex items-center gap-1 w-full">
+                            <input 
+                              value={editNameValue} 
+                              onChange={(e) => setEditNameValue(e.target.value)}
+                              className="w-full bg-slate-800 border border-slate-600 rounded px-1 text-white"
+                              autoFocus
+                            />
+                            <button onClick={handleSaveEdit}><Check className="w-3 h-3 text-green-400"/></button>
+                            <button onClick={() => setEditingCategory(null)}><X className="w-3 h-3 text-red-400"/></button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-between w-full">
+                            <div className="flex items-center gap-2 overflow-hidden">
+                              <span className="truncate">{name}</span>
+                              <button onClick={() => handleStartEdit(name, 'Apenso')} className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-white"><Pencil className="w-3 h-3"/></button>
+                            </div>
+                            
+                            {/* Delete Group Button */}
+                            <button 
+                              type="button"
+                              onClick={(e) => { 
+                                e.stopPropagation(); 
+                                e.preventDefault();
+                                onDeleteGroup('Apenso', name); 
+                              }}
+                              className="text-slate-500 hover:bg-red-600 hover:text-white p-1 rounded transition-colors"
+                              title="Eliminar este Apenso e todos os ficheiros"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
+                    </div>
+                    {renderFileList(groupFiles)}
+                  </div>
+                ))
+              ) : (
+                <div className="p-2 text-xs text-slate-500 italic text-center">
+                   {apensoFilter ? 'Nenhum resultado.' : 'Sem apensos.'}
                 </div>
-              ))}
+              )}
             </div>
           ) : <div className="p-2 text-xs text-slate-500 italic text-center">Sem apensos.</div>
         )}
@@ -321,46 +367,55 @@ const Sidebar: React.FC<SidebarProps> = ({
           Object.keys(anexosGroups).length,
           Object.keys(anexosGroups).length > 0 ? (
             <div className="space-y-3">
-              {Object.entries(anexosGroups).sort((a,b) => a[0].localeCompare(b[0])).map(([name, groupFiles]) => (
-                <div key={name} className="group/groupheader">
-                   <div className="flex items-center justify-between px-2 py-1 text-xs font-bold text-gray-300 uppercase tracking-wider group">
-                      {editingCategory?.name === name && editingCategory.category === 'Anexo' ? (
-                        <div className="flex items-center gap-1 w-full">
-                          <input 
-                            value={editNameValue} 
-                            onChange={(e) => setEditNameValue(e.target.value)}
-                            className="w-full bg-slate-800 border border-slate-600 rounded px-1 text-white"
-                            autoFocus
-                          />
-                          <button onClick={handleSaveEdit}><Check className="w-3 h-3 text-green-400"/></button>
-                          <button onClick={() => setEditingCategory(null)}><X className="w-3 h-3 text-red-400"/></button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-between w-full">
-                           <div className="flex items-center gap-2 overflow-hidden">
-                              <span className="truncate">{name}</span>
-                              <button onClick={() => handleStartEdit(name, 'Anexo')} className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-white"><Pencil className="w-3 h-3"/></button>
-                           </div>
-                           
-                           {/* Delete Group Button */}
-                           <button 
-                             type="button"
-                             onClick={(e) => { 
-                                e.stopPropagation(); 
-                                e.preventDefault();
-                                onDeleteGroup('Anexo', name); 
-                             }}
-                             className="text-slate-500 hover:bg-red-600 hover:text-white p-1 rounded transition-colors"
-                             title="Eliminar este Anexo e todos os ficheiros"
-                           >
-                             <Trash2 className="w-3.5 h-3.5" />
-                           </button>
-                        </div>
-                      )}
-                   </div>
-                   {renderFileList(groupFiles)}
+              {/* Filter Input */}
+              {renderFilterInput(anexoFilter, setAnexoFilter, "Filtrar Anexos...")}
+
+              {filteredAnexos.length > 0 ? (
+                filteredAnexos.map(([name, groupFiles]) => (
+                  <div key={name} className="group/groupheader">
+                    <div className="flex items-center justify-between px-2 py-1 text-xs font-bold text-gray-300 uppercase tracking-wider group">
+                        {editingCategory?.name === name && editingCategory.category === 'Anexo' ? (
+                          <div className="flex items-center gap-1 w-full">
+                            <input 
+                              value={editNameValue} 
+                              onChange={(e) => setEditNameValue(e.target.value)}
+                              className="w-full bg-slate-800 border border-slate-600 rounded px-1 text-white"
+                              autoFocus
+                            />
+                            <button onClick={handleSaveEdit}><Check className="w-3 h-3 text-green-400"/></button>
+                            <button onClick={() => setEditingCategory(null)}><X className="w-3 h-3 text-red-400"/></button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-between w-full">
+                            <div className="flex items-center gap-2 overflow-hidden">
+                                <span className="truncate">{name}</span>
+                                <button onClick={() => handleStartEdit(name, 'Anexo')} className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-white"><Pencil className="w-3 h-3"/></button>
+                            </div>
+                            
+                            {/* Delete Group Button */}
+                            <button 
+                              type="button"
+                              onClick={(e) => { 
+                                  e.stopPropagation(); 
+                                  e.preventDefault();
+                                  onDeleteGroup('Anexo', name); 
+                              }}
+                              className="text-slate-500 hover:bg-red-600 hover:text-white p-1 rounded transition-colors"
+                              title="Eliminar este Anexo e todos os ficheiros"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
+                    </div>
+                    {renderFileList(groupFiles)}
+                  </div>
+                ))
+              ) : (
+                <div className="p-2 text-xs text-slate-500 italic text-center">
+                  {anexoFilter ? 'Nenhum resultado.' : 'Sem anexos.'}
                 </div>
-              ))}
+              )}
             </div>
           ) : <div className="p-2 text-xs text-slate-500 italic text-center">Sem anexos.</div>
         )}
