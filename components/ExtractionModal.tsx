@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, User, UserPlus, Pencil, X as CloseIcon, ClipboardList, Move, Monitor, Minimize2, List, Trash2, Search, Settings } from 'lucide-react';
@@ -22,7 +23,7 @@ interface ExtractionModalProps {
   onBulkAddFacts: (facts: string[]) => void;
   onDeleteFact: (fact: string) => void;
   onUpdateFact: (oldFact: string, newFact: string) => void;
-  initialData?: ExtractionMeta | null; // New prop for editing mode
+  initialData?: ExtractionMeta | null; 
 }
 
 // --- POPOUT WINDOW COMPONENT ---
@@ -38,10 +39,9 @@ const PopoutWindow: React.FC<PopoutWindowProps> = ({ children, title, onClose, o
   const windowRef = useRef<Window | null>(null);
 
   useEffect(() => {
-    // Open new native window
     const win = window.open('', '', 'width=900,height=850,left=100,top=100,resizable=yes,scrollbars=yes,status=yes');
     if (!win) {
-      alert("O browser bloqueou a nova janela. Por favor permita popups para esta página (ícone na barra de endereço).");
+      alert("O browser bloqueou a nova janela. Por favor permita popups para esta página.");
       onDock();
       return;
     }
@@ -49,12 +49,10 @@ const PopoutWindow: React.FC<PopoutWindowProps> = ({ children, title, onClose, o
     windowRef.current = win;
     win.document.title = title;
 
-    // IMPORTANT: Inject Tailwind CDN into the new window so styles match
     const script = win.document.createElement('script');
     script.src = "https://cdn.tailwindcss.com";
     win.document.head.appendChild(script);
 
-    // Tailwind Config
     const configScript = win.document.createElement('script');
     configScript.text = `
       tailwind.config = {
@@ -72,15 +70,21 @@ const PopoutWindow: React.FC<PopoutWindowProps> = ({ children, title, onClose, o
     `;
     win.document.head.appendChild(configScript);
 
-    // Create root div for React Portal
+    // Injetar estilo para ocultar scrollbars na janela destacada
+    const styleTag = win.document.createElement('style');
+    styleTag.textContent = `
+      *::-webkit-scrollbar { display: none; }
+      * { -ms-overflow-style: none; scrollbar-width: none; }
+    `;
+    win.document.head.appendChild(styleTag);
+
     const div = win.document.createElement('div');
-    div.className = "h-full bg-gray-50 overflow-hidden flex flex-col"; // Ensure full height and flex
+    div.className = "h-full bg-gray-50 overflow-hidden flex flex-col";
     win.document.body.appendChild(div);
     win.document.body.className = "h-full m-0 bg-gray-50";
 
     setContainer(div);
 
-    // Handle closing via OS 'X' button
     const handleUnload = () => {
       onDock(); 
     };
@@ -93,7 +97,6 @@ const PopoutWindow: React.FC<PopoutWindowProps> = ({ children, title, onClose, o
     };
   }, []);
 
-  // Render children into the new window's DOM
   return container ? createPortal(children, container) : null;
 };
 
@@ -120,96 +123,74 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
   initialData
 }) => {
   const [manualNumber, setManualNumber] = useState('');
-  const [articles, setArticles] = useState(''); // New Articles state
+  const [articles, setArticles] = useState(''); 
   const [docType, setDocType] = useState(docTypes[0] || 'Outro');
   const [isCustomType, setIsCustomType] = useState(false);
   const [customType, setCustomType] = useState('');
   
-  // Page Editing State
   const [editStartPage, setEditStartPage] = useState<number>(0);
   const [editEndPage, setEditEndPage] = useState<number>(0);
 
-  // Bulk Import States
   const [isBulkImportingType, setIsBulkImportingType] = useState(false);
   const [bulkTypeInput, setBulkTypeInput] = useState('');
   
-  // FACTS STATES
   const [selectedFacts, setSelectedFacts] = useState<Set<string>>(new Set());
   const [isBulkImportingFacts, setIsBulkImportingFacts] = useState(false);
   const [bulkFactsInput, setBulkFactsInput] = useState('');
   const [newFactInput, setNewFactInput] = useState('');
   const [isManagingFacts, setIsManagingFacts] = useState(false);
   
-  // Fact Editing
   const [editingFact, setEditingFact] = useState<string | null>(null);
   const [editingFactValue, setEditingFactValue] = useState('');
 
-  // Selection state
   const [selectedPeople, setSelectedPeople] = useState<Set<string>>(new Set());
 
-  // Input states for new people
   const [newArguido, setNewArguido] = useState('');
   const [newTestemunha, setNewTestemunha] = useState('');
   const [newPerito, setNewPerito] = useState('');
 
-  // Search states for people columns
   const [searchArguido, setSearchArguido] = useState('');
   const [searchTestemunha, setSearchTestemunha] = useState('');
   const [searchPerito, setSearchPerito] = useState('');
 
-  // Bulk People States
   const [bulkImportColumn, setBulkImportColumn] = useState<PersonType | null>(null);
   const [bulkPeopleInput, setBulkPeopleInput] = useState('');
 
-  // Editing state
   const [editingPersonId, setEditingPersonId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
   const [editingType, setEditingType] = useState<PersonType>('Arguido');
 
-  // Window Management
   const [isPoppedOut, setIsPoppedOut] = useState(false);
 
-  // Dragging State (Only used when docked)
   const modalRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<{x: number, y: number} | null>(null);
   const dragOffset = useRef<{x: number, y: number}>({ x: 0, y: 0 });
 
-  // Initialization Guard
-  // This ensures we only load initial data ONCE when the modal opens,
-  // preventing resets when parent state (like lists of people/facts) updates.
   const hasInitialized = useRef(false);
 
-  // Reset or Populate states when opening
   useEffect(() => {
     if (isOpen) {
-      // Only initialize if we haven't done so for this session
       if (!hasInitialized.current) {
           setEditStartPage(pageRange.start);
           setEditEndPage(pageRange.end);
 
           if (initialData) {
-            // Edit Mode: Pre-fill data
             setManualNumber(initialData.manualNumber);
             setArticles(initialData.articles || '');
             
-            // Handle Doc Type
             if (docTypes.includes(initialData.docType)) {
               setDocType(initialData.docType);
               setIsCustomType(false);
             } else {
-              setDocType('Outro'); // Or whatever default
+              setDocType('Outro');
               setIsCustomType(true);
               setCustomType(initialData.docType);
             }
 
-            // Handle People
             setSelectedPeople(new Set(initialData.selectedPeople));
-            
-            // Handle Facts
             setSelectedFacts(new Set(initialData.selectedFacts));
           
           } else {
-            // Create Mode: Reset to defaults
             setManualNumber('');
             setArticles('');
             setDocType(docTypes[0] || 'Outro');
@@ -221,21 +202,15 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
           
           hasInitialized.current = true;
       }
-      
-      // Don't reset position if already set
     } else {
-      // Reset flag when closed
       hasInitialized.current = false;
-
-      // Reset UI states
       setIsPoppedOut(false);
       setManualNumber('');
       setArticles('');
       setPosition(null); 
     }
-  }, [isOpen, initialData, pageRange.start, pageRange.end]); // Use primitives for pageRange to avoid ref equality issues
+  }, [isOpen, initialData, pageRange.start, pageRange.end]);
 
-  // Sync DocType selection if the list changes (e.g., deletion)
   useEffect(() => {
     if (!isCustomType && !docTypes.includes(docType) && docTypes.length > 0) {
       setDocType(docTypes[0]);
@@ -244,7 +219,6 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
 
   if (!isOpen) return null;
 
-  // --- DRAG LOGIC (Docked Mode) ---
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     if (isPoppedOut || !modalRef.current) return;
     
@@ -274,31 +248,22 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
     document.removeEventListener('mouseup', handleMouseUp);
   };
 
-
-  // --- SUBMISSION LOGIC ---
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const finalType = isCustomType ? customType : docType;
     if (manualNumber && finalType) {
       if (isCustomType) onAddDocType(customType); 
       
-      let finalFacts = Array.from(selectedFacts);
-
-      // Validation
       if (editStartPage > editEndPage) {
         alert("A página inicial não pode ser maior que a final.");
         return;
       }
 
-      // --- FORMATTING ARTICLES ---
-      // Split by comma, trim, and pad numbers to 4 digits
       const formattedArticles = articles
         .split(',')
         .map(n => n.trim())
         .filter(n => n.length > 0)
         .map(n => {
-            // Check if it looks like a number
             if (/^\d+$/.test(n)) {
                 return n.padStart(4, '0');
             }
@@ -311,7 +276,7 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
         articles: formattedArticles,
         docType: finalType,
         selectedPeople: Array.from(selectedPeople),
-        selectedFacts: finalFacts
+        selectedFacts: Array.from(selectedFacts)
       }, { start: editStartPage, end: editEndPage });
       
       setPosition(null);
@@ -330,7 +295,7 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
   };
 
   const toggleFact = (fact: string) => {
-     if (isManagingFacts) return; // Prevent toggling while deleting
+     if (isManagingFacts) return;
      const next = new Set(selectedFacts);
      if (next.has(fact)) {
        next.delete(fact);
@@ -387,7 +352,6 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
     if (editingFact && editingFactValue.trim()) {
       onUpdateFact(editingFact, editingFactValue.trim());
       
-      // Update local selection if this fact was selected
       if (selectedFacts.has(editingFact)) {
         const next = new Set(selectedFacts);
         next.delete(editingFact);
@@ -429,7 +393,6 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
 
   const handleDeleteCurrentDocType = () => {
      onDeleteDocType(docType);
-     // Note: The UI update is handled by the useEffect above which watches docTypes prop
   }
 
   const renderPersonColumn = (
@@ -442,7 +405,6 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
       setSearchTerm: (v: string) => void
     ) => {
     
-    // Filter by type AND search term
     const filteredPeople = people
       .filter(p => p.type === type)
       .filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -489,7 +451,6 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
           </div>
         ) : (
           <>
-            {/* Search Input for Column */}
             <div className="relative mb-2">
               <Search className="w-3 h-3 text-gray-400 absolute left-2 top-1.5" />
               <input 
@@ -545,20 +506,10 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
                         </label>
                         
                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button 
-                            type="button" 
-                            onClick={() => startEditing(p)}
-                            title="Editar"
-                            className="text-gray-400 hover:text-blue-600 px-1"
-                          >
+                          <button type="button" onClick={() => startEditing(p)} title="Editar" className="text-gray-400 hover:text-blue-600 px-1">
                             <Pencil className="w-3 h-3" />
                           </button>
-                          <button 
-                            type="button" 
-                            onClick={() => onDeletePerson(p.id)}
-                            title="Eliminar"
-                            className="text-gray-400 hover:text-red-500 px-1"
-                          >
+                          <button type="button" onClick={() => onDeletePerson(p.id)} title="Eliminar" className="text-gray-400 hover:text-red-500 px-1">
                             <Trash2 className="w-3 h-3" />
                           </button>
                         </div>
@@ -593,10 +544,8 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
     );
   };
 
-  // --- RENDER CONTENT ---
   const ModalContent = (
-    <div className={`flex flex-col h-full bg-white overflow-hidden ${isPoppedOut ? '' : ''}`}>
-       {/* Header */}
+    <div className={`flex flex-col h-full bg-white overflow-hidden`}>
       <div 
         onMouseDown={!isPoppedOut ? handleMouseDown : undefined}
         className={`bg-blue-600 px-4 py-3 text-white shrink-0 flex justify-between items-center select-none ${!isPoppedOut ? 'cursor-move rounded-t-xl' : ''}`}
@@ -614,7 +563,7 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
               value={editStartPage}
               onChange={(e) => setEditStartPage(parseInt(e.target.value) || 0)}
               className="w-12 text-center text-blue-900 rounded px-1 py-0.5"
-              onMouseDown={(e) => e.stopPropagation()} // Allow clicking without drag
+              onMouseDown={(e) => e.stopPropagation()}
             />
             <span>a</span>
             <input 
@@ -623,13 +572,12 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
               value={editEndPage}
               onChange={(e) => setEditEndPage(parseInt(e.target.value) || 0)}
               className="w-12 text-center text-blue-900 rounded px-1 py-0.5"
-              onMouseDown={(e) => e.stopPropagation()} // Allow clicking without drag
+              onMouseDown={(e) => e.stopPropagation()}
             />
           </div>
         </div>
         
         <div className="flex items-center gap-2">
-           {/* Pop-out Toggle */}
            {!isPoppedOut ? (
              <button 
                onMouseDown={(e) => e.stopPropagation()} 
@@ -641,21 +589,11 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
                <span>Abrir em Janela Separada</span>
              </button>
            ) : (
-             <button 
-               onClick={() => setIsPoppedOut(false)}
-               title="Voltar à janela principal"
-               className="flex items-center gap-2 text-white bg-blue-700 hover:bg-blue-800 px-3 py-1.5 rounded text-sm transition-colors mr-4"
-             >
+             <button onClick={() => setIsPoppedOut(false)} className="flex items-center gap-2 text-white bg-blue-700 hover:bg-blue-800 px-3 py-1.5 rounded text-sm transition-colors mr-4">
                <Minimize2 className="w-4 h-4" /> Acoplar
              </button>
            )}
-
-           <button 
-             onMouseDown={(e) => e.stopPropagation()} 
-             onClick={onClose} 
-             title="Fechar"
-             className="text-white hover:bg-blue-700 p-1 rounded transition-colors"
-           >
+           <button onMouseDown={(e) => e.stopPropagation()} onClick={onClose} className="text-white hover:bg-blue-700 p-1 rounded transition-colors">
               <CloseIcon className="w-5 h-5" />
            </button>
         </div>
@@ -664,151 +602,61 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
       <form onSubmit={handleSubmit} className="flex flex-col min-h-0 flex-1">
         <div className="flex-1 overflow-y-auto p-6 bg-white">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            {/* Manual Number */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
-                Página
-              </label>
-              <input 
-                type="text" 
-                autoFocus={!initialData} // Only autofocus if creating new
-                required
-                placeholder="Ex: 0154"
-                value={manualNumber}
-                onChange={(e) => setManualNumber(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none text-lg"
-              />
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Página</label>
+              <input type="text" autoFocus={!initialData} required placeholder="Ex: 0154" value={manualNumber} onChange={(e) => setManualNumber(e.target.value)} className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none text-lg" />
             </div>
-
-            {/* Articles Field */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
-                Artigos Referenciados
-              </label>
-              <input 
-                type="text" 
-                placeholder="Ex: 1, 55 (Guarda como 0001, 0055)"
-                value={articles}
-                onChange={(e) => setArticles(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none text-lg bg-yellow-50"
-              />
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Artigos Referenciados</label>
+              <input type="text" placeholder="Ex: 1, 55 (Guarda como 0001, 0055)" value={articles} onChange={(e) => setArticles(e.target.value)} className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none text-lg bg-yellow-50" />
               <p className="text-[10px] text-gray-400 mt-1">4 dígitos automáticos (0000) ao separar por vírgulas.</p>
             </div>
-
-            {/* Doc Type Selection */}
             <div className="md:col-span-2">
               <div className="flex justify-between items-center mb-1">
                 <label className="block text-sm font-semibold text-gray-700">Tipo de Documento</label>
                 <div className="flex gap-2 text-xs">
-                    <button 
-                        type="button" 
-                        onClick={() => setIsBulkImportingType(!isBulkImportingType)}
-                        className="text-blue-600 hover:underline"
-                    >
-                        Importar Lista
-                    </button>
+                    <button type="button" onClick={() => setIsBulkImportingType(!isBulkImportingType)} className="text-blue-600 hover:underline">Importar Lista</button>
                     <span className="text-gray-300">|</span>
-                    <button 
-                        type="button" 
-                        onClick={() => setIsCustomType(!isCustomType)}
-                        className="text-blue-600 hover:underline"
-                    >
-                        {isCustomType ? 'Escolher da lista' : 'Criar novo tipo'}
-                    </button>
+                    <button type="button" onClick={() => setIsCustomType(!isCustomType)} className="text-blue-600 hover:underline">{isCustomType ? 'Escolher da lista' : 'Criar novo tipo'}</button>
                 </div>
               </div>
-
               {isBulkImportingType ? (
                 <div className="bg-blue-50 p-2 rounded-lg border border-blue-200">
-                    <textarea 
-                        className="w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 h-24 mb-2"
-                        placeholder="Cole a lista de tipos aqui (um por linha)"
-                        value={bulkTypeInput}
-                        onChange={(e) => setBulkTypeInput(e.target.value)}
-                    />
+                    <textarea className="w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 h-24 mb-2" placeholder="Cole a lista de tipos aqui (um por linha)" value={bulkTypeInput} onChange={(e) => setBulkTypeInput(e.target.value)} />
                     <div className="flex gap-2">
-                        <button 
-                            type="button" 
-                            onClick={handleBulkTypeSubmit}
-                            className="flex-1 bg-blue-600 text-white text-xs py-2 rounded hover:bg-blue-700 font-semibold"
-                        >
-                            Adicionar Tipos
-                        </button>
-                        <button 
-                            type="button" 
-                            onClick={() => setIsBulkImportingType(false)}
-                            className="px-3 border border-gray-300 rounded hover:bg-white"
-                        >
-                            Cancelar
-                        </button>
+                        <button type="button" onClick={handleBulkTypeSubmit} className="flex-1 bg-blue-600 text-white text-xs py-2 rounded hover:bg-blue-700 font-semibold">Adicionar Tipos</button>
+                        <button type="button" onClick={() => setIsBulkImportingType(false)} className="px-3 border border-gray-300 rounded hover:bg-white">Cancelar</button>
                     </div>
                 </div>
               ) : isCustomType ? (
-                <input 
-                  type="text" 
-                  required
-                  placeholder="Nome do novo tipo..."
-                  value={customType}
-                  onChange={(e) => setCustomType(e.target.value)}
-                  className="w-full border border-blue-300 bg-blue-50 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none"
-                />
+                <input type="text" required placeholder="Nome do novo tipo..." value={customType} onChange={(e) => setCustomType(e.target.value)} className="w-full border border-blue-300 bg-blue-50 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none" />
               ) : (
                 <div className="flex gap-2">
-                  <select 
-                    value={docType}
-                    onChange={(e) => setDocType(e.target.value)}
-                    className="flex-1 border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none"
-                  >
+                  <select value={docType} onChange={(e) => setDocType(e.target.value)} className="flex-1 border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none">
                     {docTypes.map(type => (
                       <option key={type} value={type}>{type}</option>
                     ))}
                   </select>
-                  <button
-                    type="button"
-                    onClick={handleDeleteCurrentDocType}
-                    className="p-3 text-gray-400 hover:text-red-500 hover:bg-red-50 border border-gray-300 rounded-lg transition-colors"
-                    title="Eliminar este tipo da lista"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
+                  <button type="button" onClick={handleDeleteCurrentDocType} className="p-3 text-gray-400 hover:text-red-500 hover:bg-red-50 border border-gray-300 rounded-lg transition-colors" title="Eliminar este tipo da lista"><Trash2 className="w-5 h-5" /></button>
                 </div>
               )}
             </div>
           </div>
 
-          {/* FACTO SECTION */}
           <div className="mb-6 border border-indigo-100 bg-indigo-50/50 rounded-lg p-4">
               <div className="flex justify-between items-center mb-2">
-                  <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                      <List className="w-4 h-4 text-indigo-600" /> Factos Associados
-                  </label>
+                  <label className="text-sm font-semibold text-gray-700 flex items-center gap-2"><List className="w-4 h-4 text-indigo-600" /> Factos Associados</label>
                   <div className="flex gap-2 text-xs">
-                      <button 
-                          type="button" 
-                          onClick={() => setIsManagingFacts(!isManagingFacts)}
-                          className={`${isManagingFacts ? 'text-orange-600 font-bold bg-orange-100 px-2 rounded' : 'text-indigo-600 hover:underline'} flex items-center gap-1 transition-all`}
-                      >
+                      <button type="button" onClick={() => setIsManagingFacts(!isManagingFacts)} className={`${isManagingFacts ? 'text-orange-600 font-bold bg-orange-100 px-2 rounded' : 'text-indigo-600 hover:underline'} flex items-center gap-1 transition-all`}>
                           {isManagingFacts ? <><CloseIcon className="w-3 h-3"/> Terminar Edição</> : <><Settings className="w-3 h-3"/> Gerir</>}
                       </button>
                       <span className="text-gray-300">|</span>
-                      <button 
-                          type="button" 
-                          onClick={() => setIsBulkImportingFacts(!isBulkImportingFacts)}
-                          className="text-indigo-600 hover:underline flex items-center gap-1"
-                      >
-                          <ClipboardList className="w-3 h-3"/> Importar
-                      </button>
+                      <button type="button" onClick={() => setIsBulkImportingFacts(!isBulkImportingFacts)} className="text-indigo-600 hover:underline flex items-center gap-1"><ClipboardList className="w-3 h-3"/> Importar</button>
                   </div>
               </div>
-
               {isBulkImportingFacts ? (
                   <div className="bg-white p-2 rounded border border-indigo-200">
-                      <textarea 
-                          className="w-full text-xs p-2 border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 h-20 mb-2"
-                          placeholder="Cole lista de factos aqui (um por linha)"
-                          value={bulkFactsInput}
-                          onChange={(e) => setBulkFactsInput(e.target.value)}
-                      />
+                      <textarea className="w-full text-xs p-2 border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 h-20 mb-2" placeholder="Cole lista de factos aqui (um por linha)" value={bulkFactsInput} onChange={(e) => setBulkFactsInput(e.target.value)} />
                       <div className="flex gap-2">
                           <button type="button" onClick={handleBulkFactsSubmit} className="bg-indigo-600 text-white text-xs px-3 py-1 rounded">Adicionar</button>
                           <button type="button" onClick={() => setIsBulkImportingFacts(false)} className="bg-gray-200 text-gray-700 text-xs px-3 py-1 rounded">Cancelar</button>
@@ -816,86 +664,43 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
                   </div>
               ) : (
                   <div className="flex flex-col gap-2">
-                      {/* List of Facts */}
                       <div className="flex flex-wrap gap-2 max-h-[100px] overflow-y-auto p-1">
                           {facts.map(fact => (
                               isManagingFacts ? (
-                                // Editing Mode for Fact
                                 editingFact === fact ? (
                                   <div key={fact} className="flex items-center gap-1 bg-white border border-indigo-300 rounded px-1">
-                                     <input 
-                                        type="text" 
-                                        autoFocus
-                                        value={editingFactValue} 
-                                        onChange={(e) => setEditingFactValue(e.target.value)}
-                                        className="text-xs w-20 outline-none py-1"
-                                     />
+                                     <input type="text" autoFocus value={editingFactValue} onChange={(e) => setEditingFactValue(e.target.value)} className="text-xs w-20 outline-none py-1" />
                                      <button onClick={saveEditingFact} type="button" className="text-green-600 hover:bg-green-100 rounded p-0.5"><Check className="w-3 h-3"/></button>
                                      <button onClick={() => setEditingFact(null)} type="button" className="text-gray-400 hover:bg-gray-100 rounded p-0.5"><CloseIcon className="w-3 h-3"/></button>
                                   </div>
                                 ) : (
                                   <div key={fact} className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs border bg-white border-indigo-200 text-indigo-700">
                                      <span>{fact}</span>
-                                     <button 
-                                       type="button"
-                                       onClick={() => startEditingFact(fact)}
-                                       className="p-0.5 hover:bg-indigo-100 rounded-full text-indigo-400 hover:text-indigo-600"
-                                     >
-                                       <Pencil className="w-3 h-3" />
-                                     </button>
-                                     <button 
-                                       type="button"
-                                       onClick={() => onDeleteFact(fact)}
-                                       className="p-0.5 hover:bg-red-100 rounded-full text-gray-400 hover:text-red-500"
-                                     >
-                                       <CloseIcon className="w-3 h-3" />
-                                     </button>
+                                     <button type="button" onClick={() => startEditingFact(fact)} className="p-0.5 hover:bg-indigo-100 rounded-full text-indigo-400 hover:text-indigo-600"><Pencil className="w-3 h-3" /></button>
+                                     <button type="button" onClick={() => onDeleteFact(fact)} className="p-0.5 hover:bg-red-100 rounded-full text-gray-400 hover:text-red-500"><CloseIcon className="w-3 h-3" /></button>
                                   </div>
                                 )
                               ) : (
                                 <label key={fact} className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs border cursor-pointer select-none transition-colors ${selectedFacts.has(fact) ? 'bg-indigo-100 border-indigo-300 text-indigo-800 font-medium' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-                                    <input 
-                                        type="checkbox" 
-                                        checked={selectedFacts.has(fact)}
-                                        onChange={() => toggleFact(fact)}
-                                        className="hidden"
-                                    />
+                                    <input type="checkbox" checked={selectedFacts.has(fact)} onChange={() => toggleFact(fact)} className="hidden" />
                                     {selectedFacts.has(fact) && <Check className="w-3 h-3" />}
                                     {fact}
                                 </label>
                               )
                           ))}
                       </div>
-                      {/* Add new fact */}
                       {!isManagingFacts && (
                         <div className="flex gap-2 mt-1">
-                            <input 
-                                type="text" 
-                                value={newFactInput}
-                                onChange={(e) => setNewFactInput(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddFactClick())}
-                                placeholder="Criar novo facto..."
-                                className="flex-1 text-xs border border-gray-300 rounded px-2 py-1.5 focus:ring-1 focus:ring-indigo-500 outline-none"
-                            />
-                            <button 
-                                type="button" 
-                                onClick={handleAddFactClick}
-                                disabled={!newFactInput.trim()}
-                                className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-xs font-medium disabled:opacity-50"
-                            >
-                                Adicionar
-                            </button>
+                            <input type="text" value={newFactInput} onChange={(e) => setNewFactInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddFactClick())} placeholder="Criar novo facto..." className="flex-1 text-xs border border-gray-300 rounded px-2 py-1.5 focus:ring-1 focus:ring-indigo-500 outline-none" />
+                            <button type="button" onClick={handleAddFactClick} disabled={!newFactInput.trim()} className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-xs font-medium disabled:opacity-50">Adicionar</button>
                         </div>
                       )}
                   </div>
               )}
           </div>
 
-          {/* People Selection Section */}
           <div className="mb-6">
-            <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-              <User className="w-4 h-4" /> Associar Intervenientes
-            </label>
+            <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2"><User className="w-4 h-4" /> Associar Intervenientes</label>
             <div className="flex flex-col md:flex-row gap-3">
                 {renderPersonColumn('Arguidos / Suspeitos', 'Arguido', newArguido, setNewArguido, 'text-red-600', searchArguido, setSearchArguido)}
                 {renderPersonColumn('Testemunhas / Outros', 'Testemunha', newTestemunha, setNewTestemunha, 'text-amber-600', searchTestemunha, setSearchTestemunha)}
@@ -904,24 +709,10 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
           </div>
         </div>
 
-        {/* Footer Buttons - FIXED AT BOTTOM */}
         <div className="p-4 bg-gray-50 border-t border-gray-200 shrink-0 z-10">
           <div className="flex gap-3">
-            <button 
-              type="button" 
-              onClick={onClose}
-              className="flex-1 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium"
-            >
-              Cancelar
-            </button>
-            <button 
-              type="submit" 
-              disabled={!manualNumber || (isCustomType && !customType)}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold py-3 rounded-lg shadow flex justify-center items-center gap-2"
-            >
-              <Check className="w-5 h-5" />
-              {initialData ? 'Guardar Alterações' : 'Guardar Classificação'}
-            </button>
+            <button type="button" onClick={onClose} className="flex-1 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium">Cancelar</button>
+            <button type="submit" disabled={!manualNumber || (isCustomType && !customType)} className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold py-3 rounded-lg shadow flex justify-center items-center gap-2"><Check className="w-5 h-5" />{initialData ? 'Guardar Alterações' : 'Guardar Classificação'}</button>
           </div>
         </div>
       </form>
@@ -930,11 +721,7 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
 
   if (isPoppedOut) {
     return (
-      <PopoutWindow 
-        title={initialData ? 'Editar Classificação' : 'Classificar Documento'} 
-        onClose={onClose} 
-        onDock={() => setIsPoppedOut(false)}
-      >
+      <PopoutWindow title={initialData ? 'Editar Classificação' : 'Classificar Documento'} onClose={onClose} onDock={() => setIsPoppedOut(false)}>
         {ModalContent}
       </PopoutWindow>
     );
@@ -942,11 +729,7 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div 
-        ref={modalRef}
-        style={position ? { position: 'absolute', left: position.x, top: position.y, margin: 0 } : {}}
-        className={`bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh] ${!position ? 'animate-in fade-in zoom-in duration-200' : ''}`}
-      >
+      <div ref={modalRef} style={position ? { position: 'absolute', left: position.x, top: position.y, margin: 0 } : {}} className={`bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh] ${!position ? 'animate-in fade-in zoom-in duration-200' : ''}`}>
         {ModalContent}
       </div>
     </div>

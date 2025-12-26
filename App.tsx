@@ -360,7 +360,8 @@ const App: React.FC = () => {
           <p className="text-slate-500 mx-auto">Uma ferramenta segura para dividir e classificar PDFs de processos.<br/>Para começar, identifique a pasta onde estão os seus ficheiros ou carregue um projeto.</p>
           <div className="bg-white p-6 rounded-xl shadow-lg border border-blue-100 flex flex-col gap-4">
               <div className="relative group w-full">
-                  <input type="file" multiple webkitdirectory="" directory="" ref={rootFolderInputRef} onChange={(e) => { handleSetRootFolder(e); setIsUploadOpen(true); }} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                  {/* Added spread with any to fix webkitdirectory and directory property errors on input element */}
+                  <input type="file" multiple {...({ webkitdirectory: "", directory: "" } as any)} ref={rootFolderInputRef} onChange={(e) => { handleSetRootFolder(e); setIsUploadOpen(true); }} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
                   <button className="w-full px-6 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow font-bold text-lg flex items-center justify-center gap-3 transition-transform transform group-active:scale-95"><FolderOpen className="w-6 h-6" />1. Selecionar Pasta Principal do Processo</button>
               </div>
               <div className="flex items-center gap-2 text-sm text-gray-400"><div className="h-px bg-gray-200 flex-1"></div>OU<div className="h-px bg-gray-200 flex-1"></div></div>
@@ -397,7 +398,8 @@ const App: React.FC = () => {
                     </div>
                     <div className="space-y-4">
                         <div className="relative group">
-                            <input type="file" multiple webkitdirectory="" directory="" ref={relinkInputRef} onChange={handleSetRootFolder} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                            {/* Added spread with any to fix webkitdirectory and directory property errors on input element */}
+                            <input type="file" multiple {...({ webkitdirectory: "", directory: "" } as any)} ref={relinkInputRef} onChange={handleSetRootFolder} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
                             <button className="w-full px-8 py-5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 shadow-lg font-bold text-xl flex items-center justify-center gap-3 transition-transform transform group-active:scale-95"><FolderOpen className="w-6 h-6" />Selecionar Pasta Principal do Processo</button>
                         </div>
                     </div>

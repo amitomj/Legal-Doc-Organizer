@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="pt-PT">
   <head>
@@ -5,13 +6,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Organizador de Autos Judiciais</title>
     <style>
-      /* Hide scrollbar for cleaner UI in specific areas */
-      .no-scrollbar::-webkit-scrollbar {
+      /* Oculta a barra de scroll globalmente em todos os elementos */
+      *::-webkit-scrollbar {
         display: none;
       }
-      .no-scrollbar {
-        -ms-overflow-style: none;
-        scrollbar-width: none;
+      * {
+        -ms-overflow-style: none;  /* IE e Edge antigo */
+        scrollbar-width: none;     /* Firefox */
       }
     </style>
   <script type="importmap">
