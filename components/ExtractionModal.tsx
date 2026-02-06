@@ -18,6 +18,7 @@ interface ExtractionModalProps {
   onAddDocType: (type: string) => void;
   onBulkAddDocTypes: (types: string[]) => void;
   onDeleteDocType: (type: string) => void;
+  onClearAllDocTypes?: () => void;
   facts: string[];
   onAddFact: (fact: string) => void;
   onBulkAddFacts: (facts: string[]) => void;
@@ -39,7 +40,7 @@ const PopoutWindow: React.FC<PopoutWindowProps> = ({ children, title, onClose, o
   const windowRef = useRef<Window | null>(null);
 
   useEffect(() => {
-    const win = window.open('', '', 'width=900,height=850,left=100,top=100,resizable=yes,scrollbars=yes,status=yes');
+    const win = window.open('', '', 'width=1100,height=900,left=50,top=50,resizable=yes,scrollbars=yes,status=yes');
     if (!win) {
       alert("O browser bloqueou a nova janela. Por favor permita popups para esta página.");
       onDock();
@@ -115,6 +116,7 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
   onAddDocType,
   onBulkAddDocTypes,
   onDeleteDocType,
+  onClearAllDocTypes,
   facts,
   onAddFact,
   onBulkAddFacts,
@@ -410,7 +412,7 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
       .filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
     
     return (
-      <div className="flex-1 flex flex-col min-h-[150px] bg-gray-50 rounded-lg p-2 border border-gray-200">
+      <div className="flex-1 flex flex-col min-h-[200px] bg-gray-50 rounded-lg p-3 border border-gray-200">
         <div className="flex justify-between items-center mb-2">
             <h3 className={`text-xs font-bold uppercase tracking-wide ${colorClass}`}>{title}</h3>
             <button 
@@ -452,24 +454,24 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
         ) : (
           <>
             <div className="relative mb-2">
-              <Search className="w-3 h-3 text-gray-400 absolute left-2 top-1.5" />
+              <Search className="w-3 h-3 text-gray-400 absolute left-2 top-2.5" />
               <input 
                 type="text"
                 placeholder="Filtrar..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full text-xs pl-6 pr-2 py-1 border border-gray-200 rounded focus:ring-1 focus:ring-blue-200 outline-none"
+                className="w-full text-xs pl-7 pr-2 py-2 border border-gray-200 rounded focus:ring-1 focus:ring-blue-200 outline-none"
               />
             </div>
 
-            <div className="flex-1 overflow-y-auto max-h-[150px] space-y-1 mb-2">
+            <div className="flex-1 overflow-y-auto max-h-[250px] space-y-1 mb-2">
             {filteredPeople.length === 0 ? (
                 <p className="text-xs text-gray-400 italic">
                   {searchTerm ? 'Sem resultados' : 'Sem registos'}
                 </p>
             ) : (
                 filteredPeople.map(p => (
-                <div key={p.id} className="group flex items-center justify-between hover:bg-gray-100 p-1 rounded">
+                <div key={p.id} className="group flex items-center justify-between hover:bg-gray-100 p-1.5 rounded">
                     {editingPersonId === p.id ? (
                     <div className="flex flex-col gap-1 w-full bg-white p-2 rounded border border-blue-300 shadow-sm z-10">
                         <input 
@@ -477,20 +479,20 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
                           value={editingName}
                           autoFocus
                           onChange={(e) => setEditingName(e.target.value)}
-                          className="w-full text-xs border border-gray-300 rounded px-1.5 py-1 mb-1"
+                          className="w-full text-xs border border-gray-300 rounded px-1.5 py-1.5 mb-1"
                         />
                         <select
                           value={editingType}
                           onChange={(e) => setEditingType(e.target.value as PersonType)}
-                          className="w-full text-xs border border-gray-300 rounded px-1 py-1"
+                          className="w-full text-xs border border-gray-300 rounded px-1 py-1.5"
                         >
                            <option value="Arguido">Arguido</option>
                            <option value="Testemunha">Testemunha / Outro</option>
                            <option value="Perito">Polícia / Perito</option>
                         </select>
                         <div className="flex justify-end gap-2 mt-1">
-                           <button onClick={saveEditing} type="button" className="text-green-600 text-xs font-bold border border-green-200 px-2 rounded hover:bg-green-50">Guardar</button>
-                           <button onClick={() => setEditingPersonId(null)} type="button" className="text-gray-500 text-xs border border-gray-200 px-2 rounded hover:bg-gray-50">Cancelar</button>
+                           <button onClick={saveEditing} type="button" className="text-green-600 text-xs font-bold border border-green-200 px-2 py-1 rounded hover:bg-green-50">Guardar</button>
+                           <button onClick={() => setEditingPersonId(null)} type="button" className="text-gray-500 text-xs border border-gray-200 px-2 py-1 rounded hover:bg-gray-50">Cancelar</button>
                         </div>
                     </div>
                     ) : (
@@ -527,15 +529,15 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddPersonClick(inputValue, type, setInput))}
                 placeholder="Novo nome..."
-                className="flex-1 text-xs border border-gray-300 rounded px-2 py-1 focus:ring-1 focus:ring-blue-500 outline-none"
+                className="flex-1 text-xs border border-gray-300 rounded px-2 py-2 focus:ring-1 focus:ring-blue-500 outline-none"
             />
             <button 
                 type="button"
                 onClick={() => handleAddPersonClick(inputValue, type, setInput)}
                 disabled={!inputValue.trim()}
-                className="bg-white border border-gray-300 hover:bg-gray-100 text-gray-600 rounded p-1 disabled:opacity-50"
+                className="bg-white border border-gray-300 hover:bg-gray-100 text-gray-600 rounded p-1.5 disabled:opacity-50"
             >
-                <UserPlus className="w-3 h-3" />
+                <UserPlus className="w-4 h-4" />
             </button>
             </div>
           </>
@@ -548,21 +550,21 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
     <div className={`flex flex-col h-full bg-white overflow-hidden`}>
       <div 
         onMouseDown={!isPoppedOut ? handleMouseDown : undefined}
-        className={`bg-blue-600 px-4 py-3 text-white shrink-0 flex justify-between items-center select-none ${!isPoppedOut ? 'cursor-move rounded-t-xl' : ''}`}
+        className={`bg-blue-600 px-5 py-4 text-white shrink-0 flex justify-between items-center select-none ${!isPoppedOut ? 'cursor-move rounded-t-xl' : ''}`}
       >
         <div>
-          <h2 className="text-lg font-bold flex items-center gap-2">
-            {!isPoppedOut && <Move className="w-4 h-4 opacity-70" />} 
+          <h2 className="text-xl font-bold flex items-center gap-2">
+            {!isPoppedOut && <Move className="w-5 h-5 opacity-70" />} 
             {initialData ? 'Editar Classificação' : 'Classificar Documento'}
           </h2>
-          <div className="flex items-center gap-2 mt-1 ml-6 text-blue-100 text-xs font-mono">
+          <div className="flex items-center gap-2 mt-2 ml-7 text-blue-100 text-sm font-mono">
             <span>Páginas:</span>
             <input 
               type="number" 
               min={1}
               value={editStartPage}
               onChange={(e) => setEditStartPage(parseInt(e.target.value) || 0)}
-              className="w-12 text-center text-blue-900 rounded px-1 py-0.5"
+              className="w-16 text-center text-blue-900 rounded px-2 py-1"
               onMouseDown={(e) => e.stopPropagation()}
             />
             <span>a</span>
@@ -571,119 +573,125 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
               min={editStartPage}
               value={editEndPage}
               onChange={(e) => setEditEndPage(parseInt(e.target.value) || 0)}
-              className="w-12 text-center text-blue-900 rounded px-1 py-0.5"
+              className="w-16 text-center text-blue-900 rounded px-2 py-1"
               onMouseDown={(e) => e.stopPropagation()}
             />
           </div>
         </div>
         
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
            {!isPoppedOut ? (
              <button 
                onMouseDown={(e) => e.stopPropagation()} 
                onClick={() => setIsPoppedOut(true)}
                title="Mover para outro monitor"
-               className="flex items-center gap-2 bg-blue-700 hover:bg-blue-500 hover:text-white text-blue-100 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors mr-2 shadow-sm border border-blue-500"
+               className="flex items-center gap-2 bg-blue-700 hover:bg-blue-500 hover:text-white text-blue-100 px-4 py-2 rounded-lg text-sm font-semibold transition-colors mr-2 shadow-sm border border-blue-500"
              >
-               <Monitor className="w-4 h-4" />
+               <Monitor className="w-5 h-5" />
                <span>Abrir em Janela Separada</span>
              </button>
            ) : (
-             <button onClick={() => setIsPoppedOut(false)} className="flex items-center gap-2 text-white bg-blue-700 hover:bg-blue-800 px-3 py-1.5 rounded text-sm transition-colors mr-4">
-               <Minimize2 className="w-4 h-4" /> Acoplar
+             <button onClick={() => setIsPoppedOut(false)} className="flex items-center gap-2 text-white bg-blue-700 hover:bg-blue-800 px-4 py-2 rounded text-base transition-colors mr-4">
+               <Minimize2 className="w-5 h-5" /> Acoplar
              </button>
            )}
-           <button onMouseDown={(e) => e.stopPropagation()} onClick={onClose} className="text-white hover:bg-blue-700 p-1 rounded transition-colors">
-              <CloseIcon className="w-5 h-5" />
+           <button onMouseDown={(e) => e.stopPropagation()} onClick={onClose} className="text-white hover:bg-blue-700 p-2 rounded transition-colors">
+              <CloseIcon className="w-6 h-6" />
            </button>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col min-h-0 flex-1">
-        <div className="flex-1 overflow-y-auto p-6 bg-white">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div className="flex-1 overflow-y-auto p-8 bg-white">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Página</label>
-              <input type="text" autoFocus={!initialData} required placeholder="Ex: 0154" value={manualNumber} onChange={(e) => setManualNumber(e.target.value)} className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none text-lg" />
+              <label className="block text-sm font-bold text-gray-700 mb-2">N.º da Página (Manual)</label>
+              <input type="text" autoFocus={!initialData} required placeholder="Ex: 0154" value={manualNumber} onChange={(e) => setManualNumber(e.target.value)} className="w-full border border-gray-300 rounded-lg p-4 focus:ring-2 focus:ring-blue-500 outline-none text-xl font-mono" />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Artigos Referenciados</label>
-              <input type="text" placeholder="Ex: 1, 55 (Guarda como 0001, 0055)" value={articles} onChange={(e) => setArticles(e.target.value)} className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none text-lg bg-yellow-50" />
-              <p className="text-[10px] text-gray-400 mt-1">4 dígitos automáticos (0000) ao separar por vírgulas.</p>
+              <label className="block text-sm font-bold text-gray-700 mb-2">Artigos Referenciados</label>
+              <input type="text" placeholder="Ex: 1, 55 (Guarda como 0001, 0055)" value={articles} onChange={(e) => setArticles(e.target.value)} className="w-full border border-gray-300 rounded-lg p-4 focus:ring-2 focus:ring-blue-500 outline-none text-xl bg-yellow-50" />
+              <p className="text-xs text-gray-400 mt-2">Dica: Use vírgulas para separar múltiplos artigos. Serão preenchidos com 4 dígitos automaticamente.</p>
             </div>
             <div className="md:col-span-2">
-              <div className="flex justify-between items-center mb-1">
-                <label className="block text-sm font-semibold text-gray-700">Tipo de Documento</label>
-                <div className="flex gap-2 text-xs">
-                    <button type="button" onClick={() => setIsBulkImportingType(!isBulkImportingType)} className="text-blue-600 hover:underline">Importar Lista</button>
+              <div className="flex justify-between items-center mb-2">
+                <label className="block text-sm font-bold text-gray-700">Tipo de Documento</label>
+                <div className="flex gap-4 text-xs">
+                    <button type="button" onClick={() => setIsBulkImportingType(!isBulkImportingType)} className="text-blue-600 hover:underline flex items-center gap-1 font-semibold"><ClipboardList className="w-3 h-3"/> Importar Lista</button>
+                    {onClearAllDocTypes && (
+                      <button type="button" onClick={onClearAllDocTypes} className="text-red-600 hover:underline flex items-center gap-1 font-semibold"><Trash2 className="w-3 h-3"/> Limpar Tudo</button>
+                    )}
                     <span className="text-gray-300">|</span>
-                    <button type="button" onClick={() => setIsCustomType(!isCustomType)} className="text-blue-600 hover:underline">{isCustomType ? 'Escolher da lista' : 'Criar novo tipo'}</button>
+                    <button type="button" onClick={() => setIsCustomType(!isCustomType)} className="text-blue-600 hover:underline font-semibold">{isCustomType ? 'Escolher da lista' : 'Criar novo tipo'}</button>
                 </div>
               </div>
               {isBulkImportingType ? (
-                <div className="bg-blue-50 p-2 rounded-lg border border-blue-200">
-                    <textarea className="w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 h-24 mb-2" placeholder="Cole a lista de tipos aqui (um por linha)" value={bulkTypeInput} onChange={(e) => setBulkTypeInput(e.target.value)} />
-                    <div className="flex gap-2">
-                        <button type="button" onClick={handleBulkTypeSubmit} className="flex-1 bg-blue-600 text-white text-xs py-2 rounded hover:bg-blue-700 font-semibold">Adicionar Tipos</button>
-                        <button type="button" onClick={() => setIsBulkImportingType(false)} className="px-3 border border-gray-300 rounded hover:bg-white">Cancelar</button>
+                <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                    <textarea className="w-full text-sm p-3 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 h-28 mb-3" placeholder="Cole a lista de tipos aqui (um por linha)" value={bulkTypeInput} onChange={(e) => setBulkTypeInput(e.target.value)} />
+                    <div className="flex gap-3">
+                        <button type="button" onClick={handleBulkTypeSubmit} className="flex-1 bg-blue-600 text-white text-sm py-2.5 rounded hover:bg-blue-700 font-bold">Adicionar Tipos</button>
+                        <button type="button" onClick={() => setIsBulkImportingType(false)} className="px-5 border border-gray-300 rounded hover:bg-white text-sm">Cancelar</button>
                     </div>
                 </div>
               ) : isCustomType ? (
-                <input type="text" required placeholder="Nome do novo tipo..." value={customType} onChange={(e) => setCustomType(e.target.value)} className="w-full border border-blue-300 bg-blue-50 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none" />
+                <input type="text" required placeholder="Nome do novo tipo..." value={customType} onChange={(e) => setCustomType(e.target.value)} className="w-full border border-blue-300 bg-blue-50 rounded-lg p-4 focus:ring-2 focus:ring-blue-500 outline-none text-lg" />
               ) : (
-                <div className="flex gap-2">
-                  <select value={docType} onChange={(e) => setDocType(e.target.value)} className="flex-1 border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none">
+                <div className="flex gap-3">
+                  <select value={docType} onChange={(e) => setDocType(e.target.value)} className="flex-1 border border-gray-300 rounded-lg p-4 focus:ring-2 focus:ring-blue-500 outline-none text-lg">
                     {docTypes.map(type => (
                       <option key={type} value={type}>{type}</option>
                     ))}
+                    {docTypes.length === 0 && <option value="">Nenhum tipo disponível. Crie um novo.</option>}
                   </select>
-                  <button type="button" onClick={handleDeleteCurrentDocType} className="p-3 text-gray-400 hover:text-red-500 hover:bg-red-50 border border-gray-300 rounded-lg transition-colors" title="Eliminar este tipo da lista"><Trash2 className="w-5 h-5" /></button>
+                  <button type="button" onClick={handleDeleteCurrentDocType} className="p-4 text-gray-400 hover:text-red-500 hover:bg-red-50 border border-gray-300 rounded-lg transition-colors" title="Eliminar este tipo da lista"><Trash2 className="w-6 h-6" /></button>
                 </div>
               )}
             </div>
           </div>
 
-          <div className="mb-6 border border-indigo-100 bg-indigo-50/50 rounded-lg p-4">
-              <div className="flex justify-between items-center mb-2">
-                  <label className="text-sm font-semibold text-gray-700 flex items-center gap-2"><List className="w-4 h-4 text-indigo-600" /> Factos Associados</label>
-                  <div className="flex gap-2 text-xs">
-                      <button type="button" onClick={() => setIsManagingFacts(!isManagingFacts)} className={`${isManagingFacts ? 'text-orange-600 font-bold bg-orange-100 px-2 rounded' : 'text-indigo-600 hover:underline'} flex items-center gap-1 transition-all`}>
-                          {isManagingFacts ? <><CloseIcon className="w-3 h-3"/> Terminar Edição</> : <><Settings className="w-3 h-3"/> Gerir</>}
+          <div className="mb-8 border border-indigo-100 bg-indigo-50/50 rounded-xl p-5">
+              <div className="flex justify-between items-center mb-3">
+                  <label className="text-sm font-bold text-gray-700 flex items-center gap-2"><List className="w-5 h-5 text-indigo-600" /> Factos Associados</label>
+                  <div className="flex gap-3 text-xs">
+                      <button type="button" onClick={() => setIsManagingFacts(!isManagingFacts)} className={`${isManagingFacts ? 'text-orange-600 font-bold bg-orange-100 px-3 py-1 rounded' : 'text-indigo-600 hover:underline'} flex items-center gap-1 transition-all font-semibold`}>
+                          {isManagingFacts ? <><CloseIcon className="w-3 h-3"/> Terminar Edição</> : <><Settings className="w-3 h-3"/> Gerir Lista</>}
                       </button>
                       <span className="text-gray-300">|</span>
-                      <button type="button" onClick={() => setIsBulkImportingFacts(!isBulkImportingFacts)} className="text-indigo-600 hover:underline flex items-center gap-1"><ClipboardList className="w-3 h-3"/> Importar</button>
+                      <button type="button" onClick={() => setIsBulkImportingFacts(!isBulkImportingFacts)} className="text-indigo-600 hover:underline flex items-center gap-1 font-semibold"><ClipboardList className="w-3 h-3"/> Importar Lista</button>
                   </div>
               </div>
               {isBulkImportingFacts ? (
-                  <div className="bg-white p-2 rounded border border-indigo-200">
-                      <textarea className="w-full text-xs p-2 border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 h-20 mb-2" placeholder="Cole lista de factos aqui (um por linha)" value={bulkFactsInput} onChange={(e) => setBulkFactsInput(e.target.value)} />
-                      <div className="flex gap-2">
-                          <button type="button" onClick={handleBulkFactsSubmit} className="bg-indigo-600 text-white text-xs px-3 py-1 rounded">Adicionar</button>
-                          <button type="button" onClick={() => setIsBulkImportingFacts(false)} className="bg-gray-200 text-gray-700 text-xs px-3 py-1 rounded">Cancelar</button>
+                  <div className="bg-white p-3 rounded-lg border border-indigo-200">
+                      <textarea className="w-full text-xs p-3 border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 h-24 mb-3" placeholder="Cole lista de factos aqui (um por linha)" value={bulkFactsInput} onChange={(e) => setBulkFactsInput(e.target.value)} />
+                      <div className="flex gap-3">
+                          <button type="button" onClick={handleBulkFactsSubmit} className="bg-indigo-600 text-white text-xs px-4 py-2 rounded font-bold">Adicionar Factos</button>
+                          <button type="button" onClick={() => setIsBulkImportingFacts(false)} className="bg-gray-200 text-gray-700 text-xs px-4 py-2 rounded">Cancelar</button>
                       </div>
                   </div>
               ) : (
-                  <div className="flex flex-col gap-2">
-                      <div className="flex flex-wrap gap-2 max-h-[100px] overflow-y-auto p-1">
+                  <div className="flex flex-col gap-3">
+                      <div className="flex flex-wrap gap-2 max-h-[150px] overflow-y-auto p-1.5 bg-white/50 rounded-lg border border-indigo-50">
                           {facts.map(fact => (
                               isManagingFacts ? (
                                 editingFact === fact ? (
-                                  <div key={fact} className="flex items-center gap-1 bg-white border border-indigo-300 rounded px-1">
-                                     <input type="text" autoFocus value={editingFactValue} onChange={(e) => setEditingFactValue(e.target.value)} className="text-xs w-20 outline-none py-1" />
-                                     <button onClick={saveEditingFact} type="button" className="text-green-600 hover:bg-green-100 rounded p-0.5"><Check className="w-3 h-3"/></button>
-                                     <button onClick={() => setEditingFact(null)} type="button" className="text-gray-400 hover:bg-gray-100 rounded p-0.5"><CloseIcon className="w-3 h-3"/></button>
+                                  <div key={fact} className="flex items-center gap-1 bg-white border border-indigo-300 rounded-full px-3 py-1">
+                                     <input type="text" autoFocus value={editingFactValue} onChange={(e) => setEditingFactValue(e.target.value)} className="text-xs w-32 outline-none py-0.5" />
+                                     <button onClick={saveEditingFact} type="button" className="text-green-600 hover:bg-green-100 rounded-full p-1"><Check className="w-3.5 h-3.5"/></button>
+                                     <button onClick={() => setEditingFact(null)} type="button" className="text-gray-400 hover:bg-gray-100 rounded-full p-1"><CloseIcon className="w-3.5 h-3.5"/></button>
                                   </div>
                                 ) : (
-                                  <div key={fact} className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs border bg-white border-indigo-200 text-indigo-700">
-                                     <span>{fact}</span>
-                                     <button type="button" onClick={() => startEditingFact(fact)} className="p-0.5 hover:bg-indigo-100 rounded-full text-indigo-400 hover:text-indigo-600"><Pencil className="w-3 h-3" /></button>
-                                     <button type="button" onClick={() => onDeleteFact(fact)} className="p-0.5 hover:bg-red-100 rounded-full text-gray-400 hover:text-red-500"><CloseIcon className="w-3 h-3" /></button>
+                                  <div key={fact} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs border bg-white border-indigo-200 text-indigo-700">
+                                     <span className="font-medium">{fact}</span>
+                                     <div className="flex gap-1 border-l border-indigo-100 pl-1">
+                                       <button type="button" onClick={() => startEditingFact(fact)} className="p-1 hover:bg-indigo-100 rounded-full text-indigo-400 hover:text-indigo-600"><Pencil className="w-3.5 h-3.5" /></button>
+                                       <button type="button" onClick={() => onDeleteFact(fact)} className="p-1 hover:bg-red-100 rounded-full text-gray-400 hover:text-red-500"><CloseIcon className="w-3.5 h-3.5" /></button>
+                                     </div>
                                   </div>
                                 )
                               ) : (
-                                <label key={fact} className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs border cursor-pointer select-none transition-colors ${selectedFacts.has(fact) ? 'bg-indigo-100 border-indigo-300 text-indigo-800 font-medium' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                                <label key={fact} className={`inline-flex items-center gap-2 px-3 py-2 rounded-full text-xs border cursor-pointer select-none transition-all ${selectedFacts.has(fact) ? 'bg-indigo-100 border-indigo-300 text-indigo-800 font-bold shadow-sm' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
                                     <input type="checkbox" checked={selectedFacts.has(fact)} onChange={() => toggleFact(fact)} className="hidden" />
-                                    {selectedFacts.has(fact) && <Check className="w-3 h-3" />}
+                                    {selectedFacts.has(fact) && <Check className="w-4 h-4" />}
                                     {fact}
                                 </label>
                               )
@@ -691,28 +699,28 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
                       </div>
                       {!isManagingFacts && (
                         <div className="flex gap-2 mt-1">
-                            <input type="text" value={newFactInput} onChange={(e) => setNewFactInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddFactClick())} placeholder="Criar novo facto..." className="flex-1 text-xs border border-gray-300 rounded px-2 py-1.5 focus:ring-1 focus:ring-indigo-500 outline-none" />
-                            <button type="button" onClick={handleAddFactClick} disabled={!newFactInput.trim()} className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-xs font-medium disabled:opacity-50">Adicionar</button>
+                            <input type="text" value={newFactInput} onChange={(e) => setNewFactInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddFactClick())} placeholder="Criar novo facto..." className="flex-1 text-sm border border-gray-300 rounded-lg px-3 py-2.5 focus:ring-1 focus:ring-indigo-500 outline-none" />
+                            <button type="button" onClick={handleAddFactClick} disabled={!newFactInput.trim()} className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg text-sm font-bold shadow-sm disabled:opacity-50">Adicionar Facto</button>
                         </div>
                       )}
                   </div>
               )}
           </div>
 
-          <div className="mb-6">
-            <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2"><User className="w-4 h-4" /> Associar Intervenientes</label>
-            <div className="flex flex-col md:flex-row gap-3">
-                {renderPersonColumn('Arguidos / Suspeitos', 'Arguido', newArguido, setNewArguido, 'text-red-600', searchArguido, setSearchArguido)}
-                {renderPersonColumn('Testemunhas / Outros', 'Testemunha', newTestemunha, setNewTestemunha, 'text-amber-600', searchTestemunha, setSearchTestemunha)}
-                {renderPersonColumn('Polícias / Peritos', 'Perito', newPerito, setNewPerito, 'text-blue-600', searchPerito, setSearchPerito)}
+          <div className="mb-4">
+            <label className="block text-sm font-bold text-gray-700 mb-3 flex items-center gap-2"><User className="w-5 h-5 text-gray-800" /> Associar Intervenientes</label>
+            <div className="flex flex-col md:flex-row gap-4">
+                {renderPersonColumn('Arguidos / Suspeitos', 'Arguido', newArguido, setNewArguido, 'text-red-700', searchArguido, setSearchArguido)}
+                {renderPersonColumn('Testemunhas / Outros', 'Testemunha', newTestemunha, setNewTestemunha, 'text-amber-700', searchTestemunha, setSearchTestemunha)}
+                {renderPersonColumn('Polícias / Peritos', 'Perito', newPerito, setNewPerito, 'text-blue-700', searchPerito, setSearchPerito)}
             </div>
           </div>
         </div>
 
-        <div className="p-4 bg-gray-50 border-t border-gray-200 shrink-0 z-10">
-          <div className="flex gap-3">
-            <button type="button" onClick={onClose} className="flex-1 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium">Cancelar</button>
-            <button type="submit" disabled={!manualNumber || (isCustomType && !customType)} className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold py-3 rounded-lg shadow flex justify-center items-center gap-2"><Check className="w-5 h-5" />{initialData ? 'Guardar Alterações' : 'Guardar Classificação'}</button>
+        <div className="p-5 bg-gray-50 border-t border-gray-200 shrink-0 z-10">
+          <div className="flex gap-4 max-w-4xl mx-auto">
+            <button type="button" onClick={onClose} className="flex-1 py-4 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-100 font-bold transition-all">Cancelar</button>
+            <button type="submit" disabled={!manualNumber || (isCustomType && !customType)} className="flex-[2] bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold py-4 rounded-xl shadow-lg flex justify-center items-center gap-3 text-lg transition-all transform active:scale-[0.98]"><Check className="w-6 h-6" />{initialData ? 'Guardar Alterações' : 'Guardar Classificação'}</button>
           </div>
         </div>
       </form>
@@ -728,8 +736,8 @@ const ExtractionModal: React.FC<ExtractionModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div ref={modalRef} style={position ? { position: 'absolute', left: position.x, top: position.y, margin: 0 } : {}} className={`bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh] ${!position ? 'animate-in fade-in zoom-in duration-200' : ''}`}>
+    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+      <div ref={modalRef} style={position ? { position: 'absolute', left: position.x, top: position.y, margin: 0 } : {}} className={`bg-white rounded-2xl shadow-2xl w-full max-w-6xl overflow-hidden flex flex-col h-full max-h-[95vh] ${!position ? 'animate-in fade-in zoom-in duration-300' : ''}`}>
         {ModalContent}
       </div>
     </div>

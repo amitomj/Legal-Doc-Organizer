@@ -181,6 +181,15 @@ const App: React.FC = () => {
     else { setConfirmRequest({ title: "Eliminar Tipo de Documento", message: `Tem a certeza que deseja eliminar o tipo "${type}"?`, isDestructive: true, onConfirm: () => setDocTypes(prev => prev.filter(t => t !== type)) }); }
   };
 
+  const handleClearAllDocTypes = () => {
+    setConfirmRequest({
+      title: "Limpar Todos os Tipos",
+      message: "Tem a certeza que deseja apagar todos os tipos de documento da lista? Isto não afetará os documentos já classificados, mas deixará a lista de seleção vazia.",
+      isDestructive: true,
+      onConfirm: () => setDocTypes([])
+    });
+  };
+
   const handleDeleteFact = (fact: string) => {
     const count = getUsageCount('fact', fact);
     if (count > 0) { setDeleteRequest({ type: 'fact', name: fact }); setDeleteUsageCount(count); }
@@ -385,7 +394,7 @@ const App: React.FC = () => {
         ) : (
           currentFile ? (
             !isFileMissing ? (
-              <PdfViewer currentFile={currentFile} onAddExtraction={handleAddExtraction} onNextFile={handleNextFile} hasMoreFiles={files.findIndex(f => f.id === currentFileId) < files.length - 1} people={people} onAddPerson={handleAddPerson} onBulkAddPeople={handleBulkAddPeople} onUpdatePerson={handleUpdatePerson} onDeletePerson={handleDeletePerson} docTypes={docTypes} onAddDocType={handleAddDocType} onBulkAddDocTypes={handleBulkAddDocTypes} onDeleteDocType={handleDeleteDocType} facts={facts} onAddFact={handleAddFact} onBulkAddFacts={handleBulkAddFacts} onDeleteFact={handleDeleteFact} onUpdateFact={handleUpdateFact} initialPage={initialPageToJump} searchNavTrigger={searchNavTrigger} />
+              <PdfViewer currentFile={currentFile} onAddExtraction={handleAddExtraction} onNextFile={handleNextFile} hasMoreFiles={files.findIndex(f => f.id === currentFileId) < files.length - 1} people={people} onAddPerson={handleAddPerson} onBulkAddPeople={handleBulkAddPeople} onUpdatePerson={handleUpdatePerson} onDeletePerson={handleDeletePerson} docTypes={docTypes} onAddDocType={handleAddDocType} onBulkAddDocTypes={handleBulkAddDocTypes} onDeleteDocType={handleDeleteDocType} onClearAllDocTypes={handleClearAllDocTypes} facts={facts} onAddFact={handleAddFact} onBulkAddFacts={handleBulkAddFacts} onDeleteFact={handleDeleteFact} onUpdateFact={handleUpdateFact} initialPage={initialPageToJump} searchNavTrigger={searchNavTrigger} />
             ) : (
               <div className="flex flex-col items-center justify-center h-full space-y-6 bg-slate-50 p-4">
                   <div className="bg-white p-10 rounded-2xl shadow-xl text-center max-w-2xl w-full border border-slate-200">
@@ -427,7 +436,7 @@ const App: React.FC = () => {
         )}
       </main>
 
-      <ExtractionModal isOpen={!!editingExtraction} onClose={() => setEditingExtraction(null)} onConfirm={confirmSearchEdit} pageRange={editingPageRange} people={people} onAddPerson={handleAddPerson} onBulkAddPeople={handleBulkAddPeople} onUpdatePerson={handleUpdatePerson} onDeletePerson={handleDeletePerson} docTypes={docTypes} onAddDocType={handleAddDocType} onBulkAddDocTypes={handleBulkAddDocTypes} onDeleteDocType={handleDeleteDocType} facts={facts} onAddFact={handleAddFact} onBulkAddFacts={handleBulkAddFacts} onDeleteFact={handleDeleteFact} onUpdateFact={handleUpdateFact} initialData={initialEditingData} />
+      <ExtractionModal isOpen={!!editingExtraction} onClose={() => setEditingExtraction(null)} onConfirm={confirmSearchEdit} pageRange={editingPageRange} people={people} onAddPerson={handleAddPerson} onBulkAddPeople={handleBulkAddPeople} onUpdatePerson={handleUpdatePerson} onDeletePerson={handleDeletePerson} docTypes={docTypes} onAddDocType={handleAddDocType} onBulkAddDocTypes={handleBulkAddDocTypes} onDeleteDocType={handleDeleteDocType} onClearAllDocTypes={handleClearAllDocTypes} facts={facts} onAddFact={handleAddFact} onBulkAddFacts={handleBulkAddFacts} onDeleteFact={handleDeleteFact} onUpdateFact={handleUpdateFact} initialData={initialEditingData} />
       <DeleteConfirmationModal isOpen={!!deleteRequest} onClose={() => setDeleteRequest(null)} itemType={deleteItemTypeDisplay} itemName={deleteRequest?.name || ''} usageCount={deleteUsageCount} availableReplacements={availableReplacements} onConfirmDelete={executeDelete} onConfirmReplace={executeReplace} />
       <GenericConfirmModal isOpen={!!confirmRequest} onClose={() => setConfirmRequest(null)} title={confirmRequest?.title || ''} message={confirmRequest?.message || ''} onConfirm={confirmRequest?.onConfirm || (() => {})} isDestructive={confirmRequest?.isDestructive} />
       <UploadModal isOpen={isUploadOpen} onClose={() => setIsUploadOpen(false)} onUpload={handleUpload} existingApensos={uniqueApensos} existingAnexos={uniqueAnexos} availableFiles={availableFiles} />

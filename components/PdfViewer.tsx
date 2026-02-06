@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { ChevronLeft, ChevronRight, Flag, BookmarkPlus, FileWarning, RotateCw } from 'lucide-react';
@@ -22,6 +23,7 @@ interface PdfViewerProps {
   onAddDocType: (type: string) => void;
   onBulkAddDocTypes: (types: string[]) => void;
   onDeleteDocType: (type: string) => void;
+  onClearAllDocTypes?: () => void;
   facts: string[];
   onAddFact: (fact: string) => void;
   onBulkAddFacts: (facts: string[]) => void;
@@ -45,6 +47,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
   onAddDocType,
   onBulkAddDocTypes,
   onDeleteDocType,
+  onClearAllDocTypes,
   facts,
   onAddFact,
   onBulkAddFacts,
@@ -326,6 +329,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
         onAddDocType={onAddDocType}
         onBulkAddDocTypes={onBulkAddDocTypes}
         onDeleteDocType={onDeleteDocType}
+        onClearAllDocTypes={onClearAllDocTypes}
         facts={facts}
         onAddFact={onAddFact}
         onBulkAddFacts={onBulkAddFacts}
