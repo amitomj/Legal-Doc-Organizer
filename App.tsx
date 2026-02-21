@@ -16,7 +16,7 @@ import { FolderSearch, FileSearch, AlertCircle, FolderOpen } from 'lucide-react'
 export type ViewMode = 'organizer' | 'search';
 
 interface DeleteRequest {
-  type: 'person' | 'docType' | 'fact';
+  type: 'person' | 'docType' | 'fact' | 'summary';
   id?: string;
   name: string;
 }
@@ -50,6 +50,7 @@ const App: React.FC = () => {
   const relinkInputRef = useRef<HTMLInputElement>(null);
   const [people, setPeople] = useState<Person[]>([]);
   const [docTypes, setDocTypes] = useState<string[]>(DEFAULT_DOC_TYPES);
+  const [summaries, setSummaries] = useState<string[]>([]);
   const [facts, setFacts] = useState<string[]>(DEFAULT_FACTS);
 
   const uniqueApensos = Array.from(new Set(files.filter(f => f.category === 'Apenso' && f.categoryName).map(f => f.categoryName!))).sort();
@@ -157,12 +158,13 @@ const App: React.FC = () => {
     }
   };
 
-  const getUsageCount = (type: 'person' | 'docType' | 'fact', value: string) => {
+  const getUsageCount = (type: 'person' | 'docType' | 'fact' | 'summary', value: string) => {
     let count = 0;
     files.forEach(f => f.extractions.forEach(ext => {
       if (type === 'person' && ext.people.includes(value)) count++;
       if (type === 'docType' && ext.docType === value) count++;
       if (type === 'fact' && (ext.facts || []).includes(value)) count++;
+      if (type === 'summary' && ext.summary === value) count++;
     }));
     return count;
   };
@@ -181,12 +183,41 @@ const App: React.FC = () => {
     else { setConfirmRequest({ title: "Eliminar Tipo de Documento", message: `Tem a certeza que deseja eliminar o tipo "${type}"?`, isDestructive: true, onConfirm: () => setDocTypes(prev => prev.filter(t => t !== type)) }); }
   };
 
+  const handleUpdateDocType = (oldType: string, newType: string) => {
+    if (oldType === newType) return;
+    if (docTypes.includes(newType)) { alert("Este tipo já existe."); return; }
+    setDocTypes(prev => prev.map(t => t === oldType ? newType : t).sort());
+    setFiles(prev => prev.map(f => ({ ...f, extractions: f.extractions.map(e => e.docType === oldType ? { ...e, docType: newType } : e) })));
+  };
+
   const handleClearAllDocTypes = () => {
     setConfirmRequest({
       title: "Limpar Todos os Tipos",
       message: "Tem a certeza que deseja apagar todos os tipos de documento da lista? Isto não afetará os documentos já classificados, mas deixará a lista de seleção vazia.",
       isDestructive: true,
       onConfirm: () => setDocTypes([])
+    });
+  };
+
+  const handleDeleteSummary = (summary: string) => {
+    const count = getUsageCount('summary', summary);
+    if (count > 0) { setDeleteRequest({ type: 'summary', name: summary }); setDeleteUsageCount(count); }
+    else { setConfirmRequest({ title: "Eliminar Resumo", message: `Tem a certeza que deseja eliminar o resumo "${summary}" da lista de sugestões?`, isDestructive: true, onConfirm: () => setSummaries(prev => prev.filter(s => s !== summary)) }); }
+  };
+
+  const handleUpdateSummary = (oldSummary: string, newSummary: string) => {
+    if (oldSummary === newSummary) return;
+    if (summaries.includes(newSummary)) { alert("Este resumo já existe."); return; }
+    setSummaries(prev => prev.map(s => s === oldSummary ? newSummary : s).sort());
+    setFiles(prev => prev.map(f => ({ ...f, extractions: f.extractions.map(e => e.summary === oldSummary ? { ...e, summary: newSummary } : e) })));
+  };
+
+  const handleClearAllSummaries = () => {
+    setConfirmRequest({
+      title: "Limpar Todos os Resumos",
+      message: "Tem a certeza que deseja apagar todos os resumos sugeridos da lista? Isto não afetará os documentos já classificados.",
+      isDestructive: true,
+      onConfirm: () => setSummaries([])
     });
   };
 
@@ -206,11 +237,13 @@ const App: React.FC = () => {
         const fallback = docTypes.find(t => t !== name) || DEFAULT_DOC_TYPES[0] || 'Indefinido';
         return { ...ext, docType: fallback };
       }
+      if (type === 'summary' && ext.summary === name) return { ...ext, summary: '' };
       return ext;
     }) })));
     if (type === 'person' && id) setPeople(prev => prev.filter(p => p.id !== id));
     if (type === 'docType') setDocTypes(prev => prev.filter(t => t !== name));
     if (type === 'fact') setFacts(prev => prev.filter(f => f !== name));
+    if (type === 'summary') setSummaries(prev => prev.filter(s => s !== name));
     setDeleteRequest(null);
   };
 
@@ -229,16 +262,22 @@ const App: React.FC = () => {
            return { ...ext, facts: newFacts };
       }
       if (type === 'docType' && ext.docType === name) return { ...ext, docType: replacement };
+      if (type === 'summary' && ext.summary === name) return { ...ext, summary: replacement };
       return ext;
     }) })));
     if (type === 'person' && id) setPeople(prev => prev.filter(p => p.id !== id));
     if (type === 'docType') setDocTypes(prev => prev.filter(t => t !== name));
     if (type === 'fact') setFacts(prev => prev.filter(f => f !== name));
+    if (type === 'summary') setSummaries(prev => prev.filter(s => s !== name));
     setDeleteRequest(null);
   };
 
   const handleAddDocType = (type: string) => { if (!docTypes.includes(type)) setDocTypes(prev => [...prev, type].sort()); };
   const handleBulkAddDocTypes = (types: string[]) => { setDocTypes(prev => Array.from(new Set([...prev, ...types])).sort()); };
+  
+  const handleAddSummary = (summary: string) => { if (!summaries.includes(summary)) setSummaries(prev => [...prev, summary].sort()); };
+  const handleBulkAddSummaries = (items: string[]) => { setSummaries(prev => Array.from(new Set([...prev, ...items])).sort()); };
+
   const handleAddFact = (fact: string) => { if (!facts.includes(fact)) setFacts(prev => [...prev, fact].sort()); };
   const handleBulkAddFacts = (newFacts: string[]) => { setFacts(prev => Array.from(new Set([...prev, ...newFacts])).sort()); };
 
@@ -251,7 +290,7 @@ const App: React.FC = () => {
 
   const handleAddExtraction = (start: number, end: number, meta: ExtractionMeta) => {
     if (!currentFileId) return;
-    const newExtraction: Extraction = { id: uuidv4(), startPage: start, endPage: end, manualNumber: meta.manualNumber, articles: meta.articles, docType: meta.docType, people: meta.selectedPeople, facts: meta.selectedFacts };
+    const newExtraction: Extraction = { id: uuidv4(), startPage: start, endPage: end, manualNumber: meta.manualNumber, articles: meta.articles, docType: meta.docType, summary: meta.summary, people: meta.selectedPeople, facts: meta.selectedFacts };
     setFiles(prev => prev.map(f => {
       if (f.id === currentFileId) return { ...f, extractions: [...f.extractions, newExtraction] };
       return f;
@@ -282,7 +321,7 @@ const App: React.FC = () => {
 
   const confirmSearchEdit = (meta: ExtractionMeta, newRange?: { start: number, end: number }) => {
     if (!editingExtraction) return;
-    setFiles(prev => prev.map(f => f.id === editingExtraction.fileId ? { ...f, extractions: f.extractions.map(e => e.id === editingExtraction.extraction.id ? { ...e, startPage: newRange ? newRange.start : e.startPage, endPage: newRange ? newRange.end : e.endPage, manualNumber: meta.manualNumber, articles: meta.articles, docType: meta.docType, people: meta.selectedPeople, facts: meta.selectedFacts } : e) } : f));
+    setFiles(prev => prev.map(f => f.id === editingExtraction.fileId ? { ...f, extractions: f.extractions.map(e => e.id === editingExtraction.extraction.id ? { ...e, startPage: newRange ? newRange.start : e.startPage, endPage: newRange ? newRange.end : e.endPage, manualNumber: meta.manualNumber, articles: meta.articles, docType: meta.docType, summary: meta.summary, people: meta.selectedPeople, facts: meta.selectedFacts } : e) } : f));
     setEditingExtraction(null);
   };
 
@@ -311,7 +350,7 @@ const App: React.FC = () => {
   };
 
   const handleSaveProject = () => {
-    const dataToSave = { version: 4, date: new Date().toISOString(), people, docTypes, facts, files: files.map(f => ({ ...f, file: null, fileName: f.file ? f.file.name : f.fileName, relativePath: f.file ? f.file.webkitRelativePath : f.relativePath })) };
+    const dataToSave = { version: 6, date: new Date().toISOString(), people, docTypes, summaries, facts, files: files.map(f => ({ ...f, file: null, fileName: f.file ? f.file.name : f.fileName, relativePath: f.file ? f.file.webkitRelativePath : f.relativePath })) };
     const blob = new Blob([JSON.stringify(dataToSave, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -334,9 +373,10 @@ const App: React.FC = () => {
         const data = JSON.parse(text);
         if (data.people) setPeople(data.people);
         if (data.docTypes) setDocTypes(data.docTypes);
+        if (data.summaries) setSummaries(data.summaries);
         if (data.facts) setFacts(data.facts); else setFacts(DEFAULT_FACTS);
         if (data.files) {
-          const restoredFiles = data.files.map((f: any) => ({ ...f, file: null, extractions: f.extractions.map((ext: any) => ({ ...ext, facts: ext.facts || (ext.fact ? [ext.fact] : ['Prova geral']), articles: ext.articles || '' })) }));
+          const restoredFiles = data.files.map((f: any) => ({ ...f, file: null, extractions: f.extractions.map((ext: any) => ({ ...ext, summary: ext.summary || '', facts: ext.facts || (ext.fact ? [ext.fact] : ['Prova geral']), articles: ext.articles || '' })) }));
           setFiles(restoredFiles);
           if (availableFiles.length > 0) autoLinkFiles(restoredFiles, availableFiles);
           if (data.files.length > 0) setCurrentFileId(data.files[0].id);
@@ -350,7 +390,7 @@ const App: React.FC = () => {
   let initialEditingData: ExtractionMeta | null = null;
   let editingPageRange = { start: 0, end: 0 };
   if (editingExtraction) {
-      initialEditingData = { manualNumber: editingExtraction.extraction.manualNumber, articles: editingExtraction.extraction.articles || '', docType: editingExtraction.extraction.docType, selectedPeople: editingExtraction.extraction.people, selectedFacts: editingExtraction.extraction.facts || [] };
+      initialEditingData = { manualNumber: editingExtraction.extraction.manualNumber, articles: editingExtraction.extraction.articles || '', docType: editingExtraction.extraction.docType, summary: editingExtraction.extraction.summary || '', selectedPeople: editingExtraction.extraction.people, selectedFacts: editingExtraction.extraction.facts || [] };
       editingPageRange = { start: editingExtraction.extraction.startPage, end: editingExtraction.extraction.endPage };
   }
   let availableReplacements: string[] = [];
@@ -359,6 +399,7 @@ const App: React.FC = () => {
      if (deleteRequest.type === 'person') { deleteItemTypeDisplay = 'Interveniente'; availableReplacements = people.filter(p => p.name !== deleteRequest.name).map(p => p.name).sort(); }
      else if (deleteRequest.type === 'docType') { deleteItemTypeDisplay = 'Tipo de Documento'; availableReplacements = docTypes.filter(t => t !== deleteRequest.name).sort(); }
      else if (deleteRequest.type === 'fact') { deleteItemTypeDisplay = 'Facto'; availableReplacements = facts.filter(f => f !== deleteRequest.name).sort(); }
+     else if (deleteRequest.type === 'summary') { deleteItemTypeDisplay = 'Resumo' as any; availableReplacements = summaries.filter(s => s !== deleteRequest.name).sort(); }
   }
 
   if (files.length === 0 && !isUploadOpen) {
@@ -369,7 +410,6 @@ const App: React.FC = () => {
           <p className="text-slate-500 mx-auto">Uma ferramenta segura para dividir e classificar PDFs de processos.<br/>Para começar, identifique a pasta onde estão os seus ficheiros ou carregue um projeto.</p>
           <div className="bg-white p-6 rounded-xl shadow-lg border border-blue-100 flex flex-col gap-4">
               <div className="relative group w-full">
-                  {/* Added spread with any to fix webkitdirectory and directory property errors on input element */}
                   <input type="file" multiple {...({ webkitdirectory: "", directory: "" } as any)} ref={rootFolderInputRef} onChange={(e) => { handleSetRootFolder(e); setIsUploadOpen(true); }} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
                   <button className="w-full px-6 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow font-bold text-lg flex items-center justify-center gap-3 transition-transform transform group-active:scale-95"><FolderOpen className="w-6 h-6" />1. Selecionar Pasta Principal do Processo</button>
               </div>
@@ -394,7 +434,7 @@ const App: React.FC = () => {
         ) : (
           currentFile ? (
             !isFileMissing ? (
-              <PdfViewer currentFile={currentFile} onAddExtraction={handleAddExtraction} onNextFile={handleNextFile} hasMoreFiles={files.findIndex(f => f.id === currentFileId) < files.length - 1} people={people} onAddPerson={handleAddPerson} onBulkAddPeople={handleBulkAddPeople} onUpdatePerson={handleUpdatePerson} onDeletePerson={handleDeletePerson} docTypes={docTypes} onAddDocType={handleAddDocType} onBulkAddDocTypes={handleBulkAddDocTypes} onDeleteDocType={handleDeleteDocType} onClearAllDocTypes={handleClearAllDocTypes} facts={facts} onAddFact={handleAddFact} onBulkAddFacts={handleBulkAddFacts} onDeleteFact={handleDeleteFact} onUpdateFact={handleUpdateFact} initialPage={initialPageToJump} searchNavTrigger={searchNavTrigger} />
+              <PdfViewer currentFile={currentFile} onAddExtraction={handleAddExtraction} onNextFile={handleNextFile} hasMoreFiles={files.findIndex(f => f.id === currentFileId) < files.length - 1} people={people} onAddPerson={handleAddPerson} onBulkAddPeople={handleBulkAddPeople} onUpdatePerson={handleUpdatePerson} onDeletePerson={handleDeletePerson} docTypes={docTypes} onAddDocType={handleAddDocType} onBulkAddDocTypes={handleBulkAddDocTypes} onDeleteDocType={handleDeleteDocType} onUpdateDocType={handleUpdateDocType} onClearAllDocTypes={handleClearAllDocTypes} summaries={summaries} onAddSummary={handleAddSummary} onBulkAddSummaries={handleBulkAddSummaries} onDeleteSummary={handleDeleteSummary} onUpdateSummary={handleUpdateSummary} onClearAllSummaries={handleClearAllSummaries} facts={facts} onAddFact={handleAddFact} onBulkAddFacts={handleBulkAddFacts} onDeleteFact={handleDeleteFact} onUpdateFact={handleUpdateFact} initialPage={initialPageToJump} searchNavTrigger={searchNavTrigger} />
             ) : (
               <div className="flex flex-col items-center justify-center h-full space-y-6 bg-slate-50 p-4">
                   <div className="bg-white p-10 rounded-2xl shadow-xl text-center max-w-2xl w-full border border-slate-200">
@@ -407,7 +447,6 @@ const App: React.FC = () => {
                     </div>
                     <div className="space-y-4">
                         <div className="relative group">
-                            {/* Added spread with any to fix webkitdirectory and directory property errors on input element */}
                             <input type="file" multiple {...({ webkitdirectory: "", directory: "" } as any)} ref={relinkInputRef} onChange={handleSetRootFolder} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
                             <button className="w-full px-8 py-5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 shadow-lg font-bold text-xl flex items-center justify-center gap-3 transition-transform transform group-active:scale-95"><FolderOpen className="w-6 h-6" />Selecionar Pasta Principal do Processo</button>
                         </div>
@@ -419,7 +458,6 @@ const App: React.FC = () => {
           ) : ( <div className="flex items-center justify-center h-full text-gray-400">Selecione um ficheiro na barra lateral</div> )
         )}
 
-        {/* Overlay de carregamento para exportação por partes */}
         {isExporting && (
           <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center">
              <div className="bg-white p-8 rounded-2xl shadow-2xl flex flex-col items-center max-w-sm text-center">
@@ -436,7 +474,7 @@ const App: React.FC = () => {
         )}
       </main>
 
-      <ExtractionModal isOpen={!!editingExtraction} onClose={() => setEditingExtraction(null)} onConfirm={confirmSearchEdit} pageRange={editingPageRange} people={people} onAddPerson={handleAddPerson} onBulkAddPeople={handleBulkAddPeople} onUpdatePerson={handleUpdatePerson} onDeletePerson={handleDeletePerson} docTypes={docTypes} onAddDocType={handleAddDocType} onBulkAddDocTypes={handleBulkAddDocTypes} onDeleteDocType={handleDeleteDocType} onClearAllDocTypes={handleClearAllDocTypes} facts={facts} onAddFact={handleAddFact} onBulkAddFacts={handleBulkAddFacts} onDeleteFact={handleDeleteFact} onUpdateFact={handleUpdateFact} initialData={initialEditingData} />
+      <ExtractionModal isOpen={!!editingExtraction} onClose={() => setEditingExtraction(null)} onConfirm={confirmSearchEdit} pageRange={editingPageRange} people={people} onAddPerson={handleAddPerson} onBulkAddPeople={handleBulkAddPeople} onUpdatePerson={handleUpdatePerson} onDeletePerson={handleDeletePerson} docTypes={docTypes} onAddDocType={handleAddDocType} onBulkAddDocTypes={handleBulkAddDocTypes} onDeleteDocType={handleDeleteDocType} onUpdateDocType={handleUpdateDocType} onClearAllDocTypes={handleClearAllDocTypes} summaries={summaries} onAddSummary={handleAddSummary} onBulkAddSummaries={handleBulkAddSummaries} onDeleteSummary={handleDeleteSummary} onUpdateSummary={handleUpdateSummary} onClearAllSummaries={handleClearAllSummaries} facts={facts} onAddFact={handleAddFact} onBulkAddFacts={handleBulkAddFacts} onDeleteFact={handleDeleteFact} onUpdateFact={handleUpdateFact} initialData={initialEditingData} />
       <DeleteConfirmationModal isOpen={!!deleteRequest} onClose={() => setDeleteRequest(null)} itemType={deleteItemTypeDisplay} itemName={deleteRequest?.name || ''} usageCount={deleteUsageCount} availableReplacements={availableReplacements} onConfirmDelete={executeDelete} onConfirmReplace={executeReplace} />
       <GenericConfirmModal isOpen={!!confirmRequest} onClose={() => setConfirmRequest(null)} title={confirmRequest?.title || ''} message={confirmRequest?.message || ''} onConfirm={confirmRequest?.onConfirm || (() => {})} isDestructive={confirmRequest?.isDestructive} />
       <UploadModal isOpen={isUploadOpen} onClose={() => setIsUploadOpen(false)} onUpload={handleUpload} existingApensos={uniqueApensos} existingAnexos={uniqueAnexos} availableFiles={availableFiles} />
