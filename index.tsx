@@ -1,7 +1,7 @@
-@import "tailwindcss";
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import './index.css'; // <--- Isto diz ao React para usar o ficheiro acima
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
