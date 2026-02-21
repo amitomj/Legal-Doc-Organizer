@@ -1,3 +1,4 @@
+
 export type DocCategory = 'Autos Principais' | 'Apenso' | 'Anexo';
 
 export type PersonType = 'Arguido' | 'Testemunha' | 'Perito';
@@ -13,19 +14,20 @@ export interface Extraction {
   startPage: number;
   endPage: number;
   manualNumber: string;
-  articles: string; // New field for Articles
+  articles: string;
   docType: string;
-  people: string[]; // List of person names associated
-  facts: string[]; // List of facts associated
+  summary: string; // New field
+  people: string[];
+  facts: string[];
 }
 
 export interface CaseFile {
   id: string;
   file: File | null;
   fileName?: string;
-  relativePath?: string; // Path relative to the root folder
+  relativePath?: string;
   category: DocCategory;
-  categoryName?: string; // Used for name of Apenso/Anexo
+  categoryName?: string;
   volume: string;
   extractions: Extraction[];
   pageCount?: number;
@@ -33,8 +35,9 @@ export interface CaseFile {
 
 export interface ExtractionMeta {
   manualNumber: string;
-  articles: string; // New field
+  articles: string;
   docType: string;
+  summary: string; // New field
   selectedPeople: string[];
   selectedFacts: string[];
 }
@@ -46,8 +49,9 @@ export interface SearchResult {
   category: string;
   categoryName?: string;
   manualNumber: string;
-  articles: string; // New field
+  articles: string;
   docType: string;
+  summary: string; // New field
   people: string[];
   facts: string[];
   startPage: number;
